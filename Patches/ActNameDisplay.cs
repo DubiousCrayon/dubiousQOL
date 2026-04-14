@@ -152,7 +152,9 @@ public static class PatchActNameDisplay
         template.HorizontalAlignment = HorizontalAlignment.Left;
         template.VerticalAlignment = VerticalAlignment.Center;
         template.MouseFilter = Control.MouseFilterEnum.Ignore;
-        template.CustomMinimumSize = new Vector2(220, 80);
+        // Height fixed so the row doesn't shift; width 0 lets Label.get_minimum_size
+        // shrink to the rendered text so the flame badge docks right up against it.
+        template.CustomMinimumSize = new Vector2(0, 80);
         template.SizeFlagsVertical = Control.SizeFlags.Fill;
         template.SizeFlagsHorizontal = Control.SizeFlags.ShrinkBegin;
         return template;
