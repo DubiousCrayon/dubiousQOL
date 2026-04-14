@@ -139,6 +139,7 @@ internal static class DubiousConfigModal
         AddToggle(vbox, "Rarity Display (hover tips)", DubiousConfig.RarityDisplay, v => DubiousConfig.RarityDisplay = v);
         AddToggle(vbox, "Unified Save Path (restart required)", DubiousConfig.UnifiedSavePath, v => DubiousConfig.UnifiedSavePath = v);
         AddToggle(vbox, "Skip Splash Screen", DubiousConfig.SkipSplash, v => DubiousConfig.SkipSplash = v);
+        AddToggle(vbox, "Incoming Damage Display", DubiousConfig.IncomingDamageDisplay, v => DubiousConfig.IncomingDamageDisplay = v);
 
         var close = new Button { Text = "Close", CustomMinimumSize = new Vector2(140, 36) };
         close.SizeFlagsHorizontal = Control.SizeFlags.ShrinkCenter;
