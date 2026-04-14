@@ -17,10 +17,6 @@
             <HintPath>$(Sts2Path)\data_sts2_windows_x86_64\sts2.dll</HintPath>
             <Publicize>True</Publicize> <!--Allows private/protected field references but may cause errors.-->
         </Reference>
-        <Reference Include="BaseLib">
-            <HintPath>$(Sts2Path)\mods\BaseLib.dll</HintPath>
-        </Reference>
-
         <PackageReference Include="Alchyr.Sts2.ModAnalyzers" Version="0.0.1"/>
         <AdditionalFiles Include="dubiousQOL\localization\**\*.json"/>
     </ItemGroup>

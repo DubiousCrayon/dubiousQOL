@@ -53,6 +53,7 @@ public static class PatchActNameDisplay
     [HarmonyPostfix]
     public static void Postfix(NTopBarBossIcon __instance)
     {
+        if (!DubiousConfig.ActNameDisplay) return;
         try
         {
             UpdateLabel(__instance);

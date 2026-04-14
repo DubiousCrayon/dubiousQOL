@@ -24,6 +24,7 @@ public static class PatchWinStreakDisplay
     [HarmonyPostfix]
     public static void Postfix(NTopBarBossIcon __instance)
     {
+        if (!DubiousConfig.WinStreakDisplay) return;
         try { Update(__instance); }
         catch (Exception e) { MainFile.Logger.Warn($"WinStreakDisplay: {e.Message}"); }
     }

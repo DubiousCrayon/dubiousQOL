@@ -118,6 +118,7 @@ public static class PatchDeckViewReady
     [HarmonyPostfix]
     public static void Postfix(NDeckViewScreen __instance)
     {
+        if (!DubiousConfig.DeckSearch) return;
         var state = DeckSearchRegistry.GetOrCreate(__instance);
         if (state.SearchBar != null) return; // idempotent
 
@@ -170,6 +171,7 @@ public static class PatchDeckViewDisplayCards
     [HarmonyPrefix]
     public static bool Prefix(NDeckViewScreen __instance)
     {
+        if (!DubiousConfig.DeckSearch) return true;
         if (!DeckSearchRegistry.States.TryGetValue(__instance, out var state))
             return true;
 
@@ -254,6 +256,7 @@ public static class PatchToggleShowUpgrades
     [HarmonyPostfix]
     public static void Postfix(NCardsViewScreen __instance)
     {
+        if (!DubiousConfig.DeckSearch) return;
         if (__instance is NDeckViewScreen deckView
             && DeckSearchRegistry.States.TryGetValue(deckView, out var state)
             && !string.IsNullOrWhiteSpace(state.Query))

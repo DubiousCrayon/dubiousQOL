@@ -100,6 +100,7 @@ public static class PatchHoverTipInit
     [HarmonyPostfix]
     public static void Postfix(NHoverTipSet __instance, IEnumerable<IHoverTip> hoverTips)
     {
+        if (!DubiousConfig.RarityDisplay) return;
         var container = __instance._textHoverTipContainer;
         if (container == null) return;
 

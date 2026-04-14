@@ -15,10 +15,13 @@ public partial class MainFile : Node
 
     public static void Initialize()
     {
+        DubiousConfig.Load();
+
         Harmony harmony = new(ModId);
         harmony.PatchAll();
 
         // Force unified save path immediately in case it was already set
-        UserDataPathProvider.IsRunningModded = false;
+        if (DubiousConfig.UnifiedSavePath)
+            UserDataPathProvider.IsRunningModded = false;
     }
 }
