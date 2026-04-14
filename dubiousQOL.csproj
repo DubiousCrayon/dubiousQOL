@@ -4,7 +4,7 @@
         <ImplicitUsings>true</ImplicitUsings>
         <Nullable>enable</Nullable> <!--Makes code analysis regarding null values stricter.-->
         <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-        <GodotPath>C:\megadot\MegaDot_v4.5.1-stable_mono_win64.exe</GodotPath>
+        <GodotPath>C:\Users\aaa7v\tools\Megadot\MegaDot_v4.5.1-stable_mono_win64.exe</GodotPath>
         <SteamLibraryPath>C:\Program Files (x86)\Steam\steamapps</SteamLibraryPath>
         <Sts2Path>$(SteamLibraryPath)\common\Slay the Spire 2</Sts2Path>
     </PropertyGroup>
@@ -15,7 +15,7 @@
         </Reference>
         <Reference Include="sts2">
             <HintPath>$(Sts2Path)\data_sts2_windows_x86_64\sts2.dll</HintPath>
-            <Publicize>False</Publicize> <!--Allows private/protected field references but may cause errors.-->
+            <Publicize>True</Publicize> <!--Allows private/protected field references but may cause errors.-->
         </Reference>
         <Reference Include="BaseLib">
             <HintPath>$(Sts2Path)\mods\BaseLib.dll</HintPath>
@@ -58,5 +58,7 @@
     <Target Name="GodotPublish" AfterTargets="Publish">
         <Message Text="Exporting Godot .pck to mods folder" Importance="high"/>
         <Exec Command="&quot;$(GodotPath)&quot; --headless --export-pack &quot;Windows Desktop&quot; &quot;$(Sts2Path)\mods\$(MSBuildProjectName).pck&quot;" ContinueOnError="WarnAndContinue"/>
+        <Message Text="Copying mod manifest to mods folder." Importance="high"/>
+        <Copy SourceFiles="mod_manifest.json" DestinationFiles="$(Sts2Path)\mods\$(MSBuildProjectName).json"/>
     </Target>
 </Project>

@@ -1,6 +1,7 @@
 using Godot;
 using HarmonyLib;
 using MegaCrit.Sts2.Core.Modding;
+using MegaCrit.Sts2.Core.Saves;
 
 namespace dubiousQOL;
 
@@ -15,7 +16,9 @@ public partial class MainFile : Node
     public static void Initialize()
     {
         Harmony harmony = new(ModId);
-
         harmony.PatchAll();
+
+        // Force unified save path immediately in case it was already set
+        UserDataPathProvider.IsRunningModded = false;
     }
 }
