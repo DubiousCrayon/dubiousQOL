@@ -18,6 +18,7 @@ public static class DubiousConfig
     public static bool DeckSearch = true;
     public static bool RarityDisplay = true;
     public static bool UnifiedSavePath = true;
+    public static bool SkipSplash = true;
 
     private static string ConfigPath => Path.Combine(OS.GetUserDataDir(), "mod_configs", "dubiousQOL.cfg");
 
@@ -38,6 +39,7 @@ public static class DubiousConfig
             if (dict.TryGetValue(nameof(DeckSearch), out var d)) DeckSearch = d;
             if (dict.TryGetValue(nameof(RarityDisplay), out var r)) RarityDisplay = r;
             if (dict.TryGetValue(nameof(UnifiedSavePath), out var u)) UnifiedSavePath = u;
+            if (dict.TryGetValue(nameof(SkipSplash), out var s)) SkipSplash = s;
         }
         catch (Exception e)
         {
@@ -58,6 +60,7 @@ public static class DubiousConfig
                 [nameof(DeckSearch)] = DeckSearch,
                 [nameof(RarityDisplay)] = RarityDisplay,
                 [nameof(UnifiedSavePath)] = UnifiedSavePath,
+                [nameof(SkipSplash)] = SkipSplash,
             };
             File.WriteAllText(path, JsonSerializer.Serialize(dict, new JsonSerializerOptions { WriteIndented = true }));
         }
