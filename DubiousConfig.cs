@@ -20,6 +20,7 @@ public static class DubiousConfig
     public static bool UnifiedSavePath = true;
     public static bool SkipSplash = true;
     public static bool IncomingDamageDisplay = true;
+    public static bool MapHistory = true;
 
     private static string ConfigPath => Path.Combine(OS.GetUserDataDir(), "mod_configs", "dubiousQOL.cfg");
 
@@ -42,6 +43,7 @@ public static class DubiousConfig
             if (dict.TryGetValue(nameof(UnifiedSavePath), out var u)) UnifiedSavePath = u;
             if (dict.TryGetValue(nameof(SkipSplash), out var s)) SkipSplash = s;
             if (dict.TryGetValue(nameof(IncomingDamageDisplay), out var i)) IncomingDamageDisplay = i;
+            if (dict.TryGetValue(nameof(MapHistory), out var m)) MapHistory = m;
         }
         catch (Exception e)
         {
@@ -64,6 +66,7 @@ public static class DubiousConfig
                 [nameof(UnifiedSavePath)] = UnifiedSavePath,
                 [nameof(SkipSplash)] = SkipSplash,
                 [nameof(IncomingDamageDisplay)] = IncomingDamageDisplay,
+                [nameof(MapHistory)] = MapHistory,
             };
             File.WriteAllText(path, JsonSerializer.Serialize(dict, new JsonSerializerOptions { WriteIndented = true }));
         }

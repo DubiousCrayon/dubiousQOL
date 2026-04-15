@@ -38,66 +38,41 @@ internal static class ActNameStyle
 }
 
 /// <summary>
-/// Shows the current act name (Overgrowth / Underdocks / Hive / Glory) as styled
-/// text to the right of the top-bar boss icon. The label is placed as a sibling
-/// of BossIcon inside the RoomIcons HBoxContainer so it flows inline with the
-/// existing icons instead of overlapping them. Reuses the ActName MegaLabel from
-/// the act_banner scene so font/outline match the game's existing act title.
+/// Shared builders for the per-act styled MegaLabel (Overgrowth / Underdocks /
+/// Hive / Glory). Used by the top-bar PatchActNameDisplay below and by the run
+/// history map viewer (MapHistoryViewer). Pulls the label out of the
+/// act_banner scene so font/outline match the game's existing act title.
 /// </summary>
-[HarmonyPatch(typeof(NTopBarBossIcon), "OnActEntered")]
-public static class PatchActNameDisplay
+internal static class ActNameLabel
 {
-    private const string LabelName = "DubiousActNameLabel";
-    private const string WrapperName = "DubiousActNameWrapper";
+    public const string DefaultName = "DubiousActNameLabel";
 
-    [HarmonyPostfix]
-    public static void Postfix(NTopBarBossIcon __instance)
+    // Plain `new MegaLabel()` would fail _Ready's AssertThemeFontOverride check —
+    // pluck the configured ActName label out of act_banner.tscn and detach it.
+    public static MegaLabel? CreateBlank()
     {
-        if (!DubiousConfig.ActNameDisplay) return;
-        try
-        {
-            UpdateLabel(__instance);
-        }
-        catch (Exception e)
-        {
-            MainFile.Logger.Warn($"ActNameDisplay: {e.Message}");
-        }
+        var packed = ResourceLoader.Load<PackedScene>(
+            SceneHelper.GetScenePath("ui/act_banner"), null, ResourceLoader.CacheMode.Reuse);
+        if (packed == null) return null;
+
+        var banner = packed.Instantiate<Node>(PackedScene.GenEditState.Disabled);
+        var template = banner.GetNodeOrNull<MegaLabel>("ActName");
+        if (template == null) { banner.QueueFree(); return null; }
+        template.GetParent().RemoveChild(template);
+        banner.QueueFree();
+
+        template.Name = DefaultName;
+        template.AutowrapMode = TextServer.AutowrapMode.Off;
+        template.MouseFilter = Control.MouseFilterEnum.Ignore;
+        return template;
     }
 
-    private static void UpdateLabel(NTopBarBossIcon host)
+    // Apply per-act font, color, outline, shadow. actIdEntry is ActModel.Id.Entry.
+    // maxFontSizeOverride lets callers force a specific size; otherwise the
+    // per-act default from ActNameStyle is used.
+    public static void ApplyStyle(MegaLabel label, string actIdEntry, string title, int? maxFontSizeOverride = null)
     {
-        var runState = host._runState;
-        if (runState?.Act == null) return;
-
-        var parent = host.GetParent(); // RoomIcons HBox
-        if (parent == null) return;
-
-        var wrapper = parent.GetNodeOrNull<MarginContainer>(WrapperName);
-        MegaLabel? label;
-        if (wrapper == null)
-        {
-            label = CreateLabel();
-            if (label == null) return;
-            wrapper = new MarginContainer
-            {
-                Name = WrapperName,
-                MouseFilter = Control.MouseFilterEnum.Ignore,
-                SizeFlagsVertical = Control.SizeFlags.Fill,
-            };
-            wrapper.AddChild(label);
-            parent.AddChild(wrapper);
-            parent.MoveChild(wrapper, host.GetIndex() + 1);
-        }
-        else
-        {
-            label = wrapper.GetNodeOrNull<MegaLabel>(LabelName);
-            if (label == null) return;
-        }
-
-        var actKey = runState.Act.Id.Entry;
-        var title = runState.Act.Title.GetFormattedText();
-
-        var style = ActNameStyle.For(actKey);
+        var style = ActNameStyle.For(actIdEntry);
         var baseFont = string.IsNullOrEmpty(style.FontPath) ? null
             : ResourceLoader.Load<Font>(style.FontPath, null, ResourceLoader.CacheMode.Reuse);
         if (baseFont != null)
@@ -105,14 +80,7 @@ public static class PatchActNameDisplay
             var variation = new FontVariation { BaseFont = baseFont, SpacingGlyph = style.GlyphSpacing };
             label.AddThemeFontOverride("font", variation);
         }
-        label.MaxFontSize = style.MaxFontSize;
-
-        // Per-act spacing tweaks: push text right of boss icon, and vertical nudge.
-        wrapper.AddThemeConstantOverride("margin_left", Math.Max(0, style.MarginLeft));
-        // Negative margin_top shifts content up without inflating the wrapper's
-        // min_size (which would grow the HBox row and push the whole top bar down).
-        wrapper.AddThemeConstantOverride("margin_top", style.MarginTop);
-        wrapper.AddThemeConstantOverride("margin_bottom", 0);
+        label.MaxFontSize = maxFontSizeOverride ?? style.MaxFontSize;
 
         var color = style.Color;
         var fill = color.Lerp(Godot.Colors.White, 0.15f);
@@ -127,37 +95,85 @@ public static class PatchActNameDisplay
         label.SetTextAutoSize(title);
     }
 
-    // Pluck the ActName MegaLabel out of act_banner.tscn so we inherit its theme
-    // font override and outline — plain `new MegaLabel()` would fail _Ready's
-    // AssertThemeFontOverride check.
-    private static MegaLabel? CreateLabel()
+    // Per-act spacing offsets (margin_left/top) used by the top-bar wrapper to
+    // tune position next to the boss icon. Exposed so callers can apply them
+    // without re-reading ActNameStyle.
+    public static (int marginLeft, int marginTop) GetMargins(string actIdEntry)
     {
-        var packed = ResourceLoader.Load<PackedScene>(
-            SceneHelper.GetScenePath("ui/act_banner"), null, ResourceLoader.CacheMode.Reuse);
-        if (packed == null) return null;
+        var s = ActNameStyle.For(actIdEntry);
+        return (Math.Max(0, s.MarginLeft), s.MarginTop);
+    }
+}
 
-        var banner = packed.Instantiate<Node>(PackedScene.GenEditState.Disabled);
-        var template = banner.GetNodeOrNull<MegaLabel>("ActName");
-        if (template == null)
+/// <summary>
+/// Shows the current act name (Overgrowth / Underdocks / Hive / Glory) as styled
+/// text to the right of the top-bar boss icon. The label is placed as a sibling
+/// of BossIcon inside the RoomIcons HBoxContainer so it flows inline with the
+/// existing icons instead of overlapping them.
+/// </summary>
+[HarmonyPatch(typeof(NTopBarBossIcon), "OnActEntered")]
+public static class PatchActNameDisplay
+{
+    private const string WrapperName = "DubiousActNameWrapper";
+
+    [HarmonyPostfix]
+    public static void Postfix(NTopBarBossIcon __instance)
+    {
+        if (!DubiousConfig.ActNameDisplay) return;
+        try { UpdateLabel(__instance); }
+        catch (Exception e) { MainFile.Logger.Warn($"ActNameDisplay: {e.Message}"); }
+    }
+
+    private static void UpdateLabel(NTopBarBossIcon host)
+    {
+        var runState = host._runState;
+        if (runState?.Act == null) return;
+
+        var parent = host.GetParent(); // RoomIcons HBox
+        if (parent == null) return;
+
+        var wrapper = parent.GetNodeOrNull<MarginContainer>(WrapperName);
+        MegaLabel? label;
+        if (wrapper == null)
         {
-            banner.QueueFree();
-            return null;
+            label = ActNameLabel.CreateBlank();
+            if (label == null) return;
+            // Top-bar specific sizing: fixed row height, shrink-to-text width
+            // so the flame badge docks against the rendered glyphs.
+            label.MinFontSize = 14;
+            label.MaxFontSize = 34;
+            label.HorizontalAlignment = HorizontalAlignment.Left;
+            label.VerticalAlignment = VerticalAlignment.Center;
+            label.CustomMinimumSize = new Vector2(0, 80);
+            label.SizeFlagsVertical = Control.SizeFlags.Fill;
+            label.SizeFlagsHorizontal = Control.SizeFlags.ShrinkBegin;
+            wrapper = new MarginContainer
+            {
+                Name = WrapperName,
+                MouseFilter = Control.MouseFilterEnum.Ignore,
+                SizeFlagsVertical = Control.SizeFlags.Fill,
+            };
+            wrapper.AddChild(label);
+            parent.AddChild(wrapper);
+            parent.MoveChild(wrapper, host.GetIndex() + 1);
         }
-        template.GetParent().RemoveChild(template);
-        banner.QueueFree();
+        else
+        {
+            label = wrapper.GetNodeOrNull<MegaLabel>(ActNameLabel.DefaultName);
+            if (label == null) return;
+        }
 
-        template.Name = LabelName;
-        template.MinFontSize = 14;
-        template.MaxFontSize = 34;
-        template.AutowrapMode = TextServer.AutowrapMode.Off;
-        template.HorizontalAlignment = HorizontalAlignment.Left;
-        template.VerticalAlignment = VerticalAlignment.Center;
-        template.MouseFilter = Control.MouseFilterEnum.Ignore;
-        // Height fixed so the row doesn't shift; width 0 lets Label.get_minimum_size
-        // shrink to the rendered text so the flame badge docks right up against it.
-        template.CustomMinimumSize = new Vector2(0, 80);
-        template.SizeFlagsVertical = Control.SizeFlags.Fill;
-        template.SizeFlagsHorizontal = Control.SizeFlags.ShrinkBegin;
-        return template;
+        var actKey = runState.Act.Id.Entry;
+        var title = runState.Act.Title.GetFormattedText();
+
+        // Per-act spacing tweaks: push text right of boss icon, and vertical nudge.
+        // Negative margin_top shifts content up without inflating the wrapper's
+        // min_size (which would grow the HBox row and push the whole top bar down).
+        var (marginLeft, marginTop) = ActNameLabel.GetMargins(actKey);
+        wrapper.AddThemeConstantOverride("margin_left", marginLeft);
+        wrapper.AddThemeConstantOverride("margin_top", marginTop);
+        wrapper.AddThemeConstantOverride("margin_bottom", 0);
+
+        ActNameLabel.ApplyStyle(label, actKey, title);
     }
 }

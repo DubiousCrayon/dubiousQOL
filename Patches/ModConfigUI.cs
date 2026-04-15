@@ -101,7 +101,7 @@ internal static class DubiousConfigModal
         frame.AnchorLeft = 0.5f; frame.AnchorRight = 0.5f;
         frame.AnchorTop = 0.5f; frame.AnchorBottom = 0.5f;
         frame.OffsetLeft = -280; frame.OffsetRight = 280;
-        frame.OffsetTop = -220; frame.OffsetBottom = 220;
+        frame.OffsetTop = -240; frame.OffsetBottom = 240;
         root.AddChild(frame);
 
         var pad = new MarginContainer();
@@ -140,6 +140,7 @@ internal static class DubiousConfigModal
         AddToggle(vbox, "Unified Save Path (restart required)", DubiousConfig.UnifiedSavePath, v => DubiousConfig.UnifiedSavePath = v);
         AddToggle(vbox, "Skip Splash Screen", DubiousConfig.SkipSplash, v => DubiousConfig.SkipSplash = v);
         AddToggle(vbox, "Incoming Damage Display", DubiousConfig.IncomingDamageDisplay, v => DubiousConfig.IncomingDamageDisplay = v);
+        AddToggle(vbox, "Map History (save maps + drawings to run history)", DubiousConfig.MapHistory, v => DubiousConfig.MapHistory = v);
 
         var close = new Button { Text = "Close", CustomMinimumSize = new Vector2(140, 36) };
         close.SizeFlagsHorizontal = Control.SizeFlags.ShrinkCenter;
