@@ -336,7 +336,12 @@ internal partial class MapHistoryViewer : Control, IScreenContext
         // (Rng, Odds, Players, Modifiers) that SetMap pokes at. We use an
         // empty seed — only affects map jitter, which is fine because we're
         // reproducing the saved topology, not re-rolling it.
-        var players = new[] { ResolveRunPlayer() };
+        //
+        // Resolve all players from the history, not just the first: in co-op
+        // each player's drawings are keyed by their own NetId, and LoadDrawings
+        // does _playerCollection.GetPlayer(id).Character.MapDrawingColor. Missing
+        // players get their drawings silently dropped with a warning.
+        var players = ResolveAllRunPlayers();
         // CreateForTest takes canonical ActModel[] and calls ToMutable itself; passing a
         // mutable one trips AssertCanonical.
         var acts = new[] { actModel };
@@ -592,28 +597,33 @@ internal partial class MapHistoryViewer : Control, IScreenContext
         catch { return null; }
     }
 
-// Build a Player matching (as closely as we can) the first player of the run.
-    // Map drawings are keyed by player id — if we can echo that id, LoadDrawings
-    // won't warn about missing players and the stroke color matches capture.
-    private Player ResolveRunPlayer()
+    // Build one Player per historical participant. Map drawings are keyed by
+    // NetId — we echo each captured id so LoadDrawings' _playerCollection.GetPlayer
+    // lookup finds the stub, and we pass the original CharacterModel so
+    // CreateLineForPlayer pulls the correct MapDrawingColor (Ironclad red,
+    // Silent green, etc.). Using the non-generic CreateForNewRun overload avoids
+    // the reflection/MakeGenericMethod path that used to silently throw and fall
+    // through to the Deprived fallback — making every saved run's drawings
+    // render in Deprived's color regardless of who actually played.
+    //
+    // Co-op: resolving every player in _history.Players (not just [0]) is what
+    // keeps P2/P3/P4 strokes visible and in their own character colors.
+    private Player[] ResolveAllRunPlayers()
     {
+        var list = new List<Player>();
         try
         {
-            if (_history.Players.Count > 0)
+            foreach (var rp in _history.Players)
             {
-                var rp = _history.Players[0];
                 var characterModel = ModelDb.GetById<CharacterModel>(rp.Character);
-                if (characterModel != null)
-                {
-                    // CreateForNewRun<T> requires a generic arg; fall back to reflection via MakeGenericMethod.
-                    var player = CreatePlayerForCharacter(characterModel, rp.Id);
-                    if (player != null) return player;
-                }
+                if (characterModel == null) continue;
+                list.Add(Player.CreateForNewRun(characterModel, UnlockState.all, rp.Id));
             }
         }
-        catch (Exception e) { MainFile.Logger.Warn($"MapHistory ResolveRunPlayer: {e.Message}"); }
-        // Fallback: default Deprived at id 1.
-        return Player.CreateForNewRun<Deprived>(UnlockState.all, 1uL);
+        catch (Exception e) { MainFile.Logger.Warn($"MapHistory ResolveAllRunPlayers: {e.Message}"); }
+        if (list.Count == 0)
+            list.Add(Player.CreateForNewRun<Deprived>(UnlockState.all, 1uL));
+        return list.ToArray();
     }
 
     private static void HideNode(Node root, string path)
@@ -640,16 +650,4 @@ internal partial class MapHistoryViewer : Control, IScreenContext
         return f?.GetValue(target) as T;
     }
 
-    private static Player? CreatePlayerForCharacter(CharacterModel model, ulong netId)
-    {
-        try
-        {
-            var method = typeof(Player).GetMethod("CreateForNewRun",
-                System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static);
-            if (method == null) return null;
-            var generic = method.MakeGenericMethod(model.GetType());
-            return (Player?)generic.Invoke(null, new object[] { UnlockState.all, netId });
-        }
-        catch { return null; }
-    }
 }
