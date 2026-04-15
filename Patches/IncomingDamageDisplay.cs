@@ -20,8 +20,10 @@ namespace dubiousQOL.Patches;
 public static class PatchIncomingDamageDisplay
 {
     private const string ContainerName = "DubiousIncomingDamage";
-    private const float GapRightOfBar = -8f;
-    private const string FontPath = "res://dubiousQOL/fonts/DREAMERS BRUSH.ttf";
+    private const float GapTopOfBar = -25f;
+    private const float GapRightOfBar = -15f;
+    private const float DamageLeanDegrees = -12f;
+    private const string FontPath = "res://dubiousQOL/fonts/fightkid.ttf";
 
     // HpBarContainer is the actual sized rectangle behind the HP fill — its
     // Size is set by NHealthBar.SetHpBarContainerSizeWithOffsets, so "just
@@ -83,6 +85,10 @@ public static class PatchIncomingDamageDisplay
         var damage = MakeLabel("Damage", 26, new Color(0.95f, 0.15f, 0.15f));
         damage.Position = new Vector2(0, 2);
         damage.Size = new Vector2(140, 28);
+        // Pivot at the bottom-left so the baseline next to the HP bar stays put
+        // and the top of the number tips toward the bar.
+        damage.PivotOffset = new Vector2(0, 28);
+        damage.RotationDegrees = DamageLeanDegrees;
         root.AddChild(damage);
 
         var status = MakeLabel("Status", 20, new Color(1f, 0.62f, 0.1f));
@@ -126,7 +132,7 @@ public static class PatchIncomingDamageDisplay
             var barSize = bar.Size;
             container.Position = new Vector2(
                 barSize.X + GapRightOfBar,
-                barSize.Y * 0.5f - 30f);
+                barSize.Y * 0.5f + GapTopOfBar);
         }
 
         var combatState = player.CombatState;
