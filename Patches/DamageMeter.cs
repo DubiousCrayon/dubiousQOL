@@ -2,7 +2,11 @@ using System;
 using System.Collections.Generic;
 using Godot;
 using HarmonyLib;
+using MegaCrit.Sts2.Core.Multiplayer;
+using MegaCrit.Sts2.Core.Multiplayer.Game;
 using MegaCrit.Sts2.Core.Nodes;
+using MegaCrit.Sts2.Core.Nodes.Screens.Capstones;
+using MegaCrit.Sts2.Core.Platform;
 using MegaCrit.Sts2.Core.Runs;
 
 namespace dubiousQOL.Patches;
@@ -13,21 +17,32 @@ internal enum DmScope { Combat, Act, Run }
 [HarmonyPatch]
 public static class PatchDamageMeter
 {
-    private static CanvasLayer? _canvas;
     internal static DamageMeterOverlay? Overlay { get; private set; }
 
     [HarmonyPatch(typeof(NRun), "_Ready")]
     [HarmonyPostfix]
-    public static void AfterRunReady()
+    public static void AfterRunReady(NRun __instance)
     {
         if (!DubiousConfig.DamageMeter) return;
         try
         {
             Dispose();
-            _canvas = new CanvasLayer { Layer = 100 };
-            Overlay = new DamageMeterOverlay();
-            _canvas.AddChild(Overlay);
-            ((SceneTree)Engine.GetMainLoop()).Root.CallDeferred(Node.MethodName.AddChild, _canvas);
+            var globalUi = __instance.GlobalUi;
+            if (globalUi == null) return;
+            Overlay = new DamageMeterOverlay
+            {
+                // Stay responsive (F8, close button) even when the capstone
+                // pauses combat — parent inherits the paused state otherwise.
+                ProcessMode = Node.ProcessModeEnum.Always,
+            };
+            // Mount inside GlobalUi (default canvas) so tooltips — which live
+            // on NGame.HoverTipsContainer, a later sibling of GlobalUi's chain
+            // in NGame's children — naturally draw above us via tree order.
+            // Previously used a CanvasLayer (Layer>=0 always drew above the
+            // default canvas, so tooltips got covered). Deferred so NRun's own
+            // _Ready finishes first. Last-child position keeps us over TopBar
+            // and the rest of the in-run HUD like the old CanvasLayer did.
+            globalUi.CallDeferred(Node.MethodName.AddChild, Overlay);
         }
         catch (Exception e) { MainFile.Logger.Warn($"DamageMeter mount: {e.Message}"); }
     }
@@ -42,9 +57,8 @@ public static class PatchDamageMeter
 
     private static void Dispose()
     {
-        if (_canvas != null && GodotObject.IsInstanceValid(_canvas))
-            _canvas.QueueFree();
-        _canvas = null;
+        if (Overlay != null && GodotObject.IsInstanceValid(Overlay))
+            Overlay.QueueFree();
         Overlay = null;
     }
 }
@@ -89,6 +103,12 @@ internal sealed partial class DamageMeterOverlay : Control
     private DmScope _scope = DmScope.Combat;
     private bool _perTurn = true;
     private bool _filtersCollapsed = true;
+
+    // Split "is it Visible?" into two sources: _userVisible reflects F8/close-button
+    // intent; _menuHiding reflects capstone (pause/compendium/settings) being open.
+    // The overlay shows iff the user hasn't dismissed it AND no capstone is up.
+    private bool _userVisible = true;
+    private bool _menuHiding;
 
     private float CurrentHeaderHeight => _filtersCollapsed ? HeaderHeightCollapsed : HeaderHeightExpanded;
 
@@ -160,9 +180,34 @@ internal sealed partial class DamageMeterOverlay : Control
         // bring the overlay back after the close button hid it.
         if (@event is InputEventKey k && k.Pressed && !k.Echo && k.Keycode == Key.F8)
         {
-            Visible = !Visible;
+            _userVisible = !_userVisible;
+            UpdateEffectiveVisibility();
             GetViewport().SetInputAsHandled();
         }
+    }
+
+    public override void _Process(double delta)
+    {
+        bool hide = false;
+        try
+        {
+            // InUse is the authoritative "a pause/compendium/settings screen is
+            // open" flag. The container's own Visible is always true since it
+            // stays mounted — only CurrentCapstoneScreen toggles.
+            var cap = NCapstoneContainer.Instance;
+            if (cap != null && cap.InUse) hide = true;
+        }
+        catch { }
+        if (_menuHiding != hide)
+        {
+            _menuHiding = hide;
+            UpdateEffectiveVisibility();
+        }
+    }
+
+    private void UpdateEffectiveVisibility()
+    {
+        Visible = _userVisible && !_menuHiding;
     }
 
     private void BuildUi()
@@ -337,7 +382,7 @@ internal sealed partial class DamageMeterOverlay : Control
         };
         closeBtn.AddThemeFontSizeOverride("font_size", 11);
         StyleButton(closeBtn, Colors.Transparent, new Color(0.5f, 0.15f, 0.15f, 0.8f));
-        closeBtn.Pressed += () => Visible = false;
+        closeBtn.Pressed += () => { _userVisible = false; UpdateEffectiveVisibility(); };
         hbox.AddChild(closeBtn);
 
         return panel;
@@ -475,7 +520,11 @@ internal sealed partial class DamageMeterOverlay : Control
         var scope = DamageMeterTracker.ForScope(_scope);
         int turns = Math.Max(1, scope.PlayerTurns);
 
-        var entries = new List<(float value, Color color, Texture2D? icon)>();
+        // Only surface names in multiplayer — in singleplayer there's exactly one
+        // bar and the name is just your own steam handle, which adds noise.
+        bool showNames = RunManager.Instance?.NetService?.Type.IsMultiplayer() ?? false;
+
+        var entries = new List<(float value, Color color, Texture2D? icon, string name)>();
         if (state?.Players != null)
         {
             foreach (var player in state.Players)
@@ -487,7 +536,7 @@ internal sealed partial class DamageMeterOverlay : Control
                 var character = player.Character;
                 var color = character != null ? character.MapDrawingColor : new Color(0.6f, 0.6f, 0.6f);
                 var icon = character?.IconTexture;
-                entries.Add((val, color, icon));
+                entries.Add((val, color, icon, showNames ? ResolvePlayerName(player.NetId) : ""));
             }
         }
 
@@ -503,7 +552,7 @@ internal sealed partial class DamageMeterOverlay : Control
             if (present) continue;
             long raw = GetMetric(kv.Value);
             float val = _perTurn ? (float)raw / turns : raw;
-            entries.Add((val, new Color(0.6f, 0.6f, 0.6f), null));
+            entries.Add((val, new Color(0.6f, 0.6f, 0.6f), null, showNames ? ResolvePlayerName(kv.Key) : ""));
         }
 
         entries.Sort((a, b) => b.value.CompareTo(a.value));
@@ -512,7 +561,7 @@ internal sealed partial class DamageMeterOverlay : Control
         foreach (var e in entries) if (e.value > max) max = e.value;
 
         foreach (var e in entries)
-            _rowBox.AddChild(MakeRow(e.value, max, e.color, e.icon));
+            _rowBox.AddChild(MakeRow(e.value, max, e.color, e.icon, e.name));
 
         if (!_userResized)
         {
@@ -522,6 +571,29 @@ internal sealed partial class DamageMeterOverlay : Control
         }
 
         UpdateFilterCollapse();
+    }
+
+    // Resolve a display name for a player's netId. In multiplayer the netId IS
+    // the Steam ID, so PlatformUtil resolves it directly. In singleplayer
+    // NetSingleplayerGameService hardcodes NetId to 1, which the Steam strategy
+    // can't look up (returns "1") — so detect that case and ask for the local
+    // player's actual Steam ID instead.
+    private static string ResolvePlayerName(ulong netId)
+    {
+        try
+        {
+            var net = RunManager.Instance?.NetService;
+            if (net != null)
+            {
+                ulong lookupId = netId;
+                if (net.Type == NetGameType.Singleplayer && netId == NetSingleplayerGameService.defaultNetId)
+                    lookupId = PlatformUtil.GetLocalPlayerId(net.Platform);
+                var name = PlatformUtil.GetPlayerName(net.Platform, lookupId);
+                if (!string.IsNullOrEmpty(name) && name != lookupId.ToString()) return name;
+            }
+        }
+        catch (Exception e) { MainFile.Logger.Warn($"DamageMeter name lookup: {e.Message}"); }
+        return "P" + netId;
     }
 
     private long GetMetric(DmPlayerStats? stats)
@@ -542,7 +614,7 @@ internal sealed partial class DamageMeterOverlay : Control
         return ((int)Math.Round(v)).ToString();
     }
 
-    internal Control MakeRow(float value, float maxValue, Color barColor, Texture2D? iconTex)
+    internal Control MakeRow(float value, float maxValue, Color barColor, Texture2D? iconTex, string playerName)
     {
         var row = new HBoxContainer
         {
@@ -595,6 +667,33 @@ internal sealed partial class DamageMeterOverlay : Control
         barFill.AnchorRight = pct;
         barFill.AnchorBottom = 1f;
         barBg.AddChild(barFill);
+
+        // Name on the left and value on the right both stretch across the full
+        // bar width with opposite alignments — ClipContents on the Panel keeps
+        // a long name from spilling past the bar, and the right-aligned value
+        // stays readable since its text naturally hugs the right edge first.
+        // Empty playerName = singleplayer, where the label would just be noise.
+        if (!string.IsNullOrEmpty(playerName))
+        {
+            var nameLabel = new Label
+            {
+                Text = playerName,
+                HorizontalAlignment = HorizontalAlignment.Left,
+                VerticalAlignment = VerticalAlignment.Center,
+                MouseFilter = MouseFilterEnum.Ignore,
+                ClipText = true,
+            };
+            nameLabel.SetAnchorsPreset(LayoutPreset.FullRect);
+            nameLabel.OffsetLeft = 6;
+            nameLabel.OffsetRight = -4;
+            nameLabel.AddThemeFontSizeOverride("font_size", 12);
+            nameLabel.AddThemeColorOverride("font_color", new Color(1f, 1f, 1f));
+            nameLabel.AddThemeColorOverride("font_shadow_color", new Color(0f, 0f, 0f, 0.9f));
+            nameLabel.AddThemeConstantOverride("shadow_offset_x", 1);
+            nameLabel.AddThemeConstantOverride("shadow_offset_y", 1);
+            nameLabel.AddThemeConstantOverride("shadow_outline_size", 2);
+            barBg.AddChild(nameLabel);
+        }
 
         // Value overlays the right end of the bar. Shadow keeps the digits
         // readable whether they land over the filled portion or the empty track.

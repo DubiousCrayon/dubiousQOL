@@ -159,8 +159,8 @@ public static class PatchDeckViewReady
         searchBar.OffsetLeft = -167f;  // ~2/3 of previous 500-wide bar
         searchBar.OffsetRight = 167f;
         // Bottom edge sits just above the sort bar so the bar's white outline stays visible.
-        searchBar.OffsetBottom = sortBg.OffsetTop - 5f;
-        searchBar.OffsetTop = searchBar.OffsetBottom - 60f;
+        searchBar.OffsetBottom = sortBg.OffsetTop - 12f;
+        searchBar.OffsetTop = searchBar.OffsetBottom - 40f;
         searchBar.MouseFilter = Control.MouseFilterEnum.Pass;
     }
 }

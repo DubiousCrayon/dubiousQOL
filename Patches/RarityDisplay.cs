@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using Godot;
 using HarmonyLib;
@@ -6,13 +7,16 @@ using MegaCrit.Sts2.Core.Entities.Relics;
 using MegaCrit.Sts2.Core.HoverTips;
 using MegaCrit.Sts2.Core.Models;
 using MegaCrit.Sts2.Core.Nodes.HoverTips;
+using MegaCrit.Sts2.Core.Nodes.Screens.PotionLab;
+using MegaCrit.Sts2.Core.Nodes.Screens.RelicCollection;
+using MegaCrit.Sts2.addons.mega_text;
 
 namespace dubiousQOL.Patches;
 
 public static class RarityColors
 {
     // Relic rarities
-    public static readonly Color Starter = new(0.74f, 0.74f, 0.74f);    // #BDBDBD light grey
+    public static readonly Color Starter = new(0.77f, 0.58f, 0.42f);    // #C4956A parchment
     public static readonly Color Common = new(0.63f, 0.63f, 0.63f);     // #A0A0A0 grey
     public static readonly Color Uncommon = new(0.28f, 0.78f, 0.28f);   // #48C848 green
     public static readonly Color Rare = new(1.0f, 0.84f, 0.0f);        // #FFD700 gold
@@ -46,7 +50,9 @@ public static class RarityColors
 
 public static class RarityIconGenerator
 {
-    private const int IconSize = 16;
+    // Odd size so the diamond has a true center pixel — even sizes leave the
+    // right/bottom tips truncated at inner-fill pixels instead of the edge band.
+    private const int IconSize = 15;
     private static readonly Dictionary<Color, ImageTexture> _iconCache = new();
 
     public static ImageTexture GetDiamondIcon(Color color)
@@ -91,6 +97,70 @@ public static class RarityIconGenerator
         var texture = ImageTexture.CreateFromImage(image);
         _iconCache[color] = texture;
         return texture;
+    }
+}
+
+internal static class CompendiumHeaderRecolor
+{
+    // Loc headers wrap the title portion in a MegaRichTextLabel custom effect tag like
+    // [gold]...[/gold] (see RichTextGold). Swap those color-effect tags for a standard
+    // [color=#HEX] BBCode span tinted to the rarity color.
+    private static readonly string[] ColorEffectTags =
+        { "gold", "aqua", "blue", "green", "orange", "pink", "purple", "red" };
+
+    public static void RecolorTitle(MegaRichTextLabel? label, Color color)
+    {
+        if (label == null) return;
+        var text = label.Text;
+        if (string.IsNullOrEmpty(text)) return;
+        var hex = "#" + color.ToHtml(includeAlpha: false);
+        var replaced = text;
+        foreach (var tag in ColorEffectTags)
+        {
+            replaced = replaced.Replace($"[{tag}]", $"[color={hex}]");
+            replaced = replaced.Replace($"[/{tag}]", "[/color]");
+        }
+        if (replaced != text)
+            label.Text = replaced;
+    }
+}
+
+[HarmonyPatch(typeof(NRelicCollectionCategory), "LoadRelics")]
+public static class PatchRelicCollectionCategoryHeader
+{
+    [HarmonyPostfix]
+    public static void Postfix(NRelicCollectionCategory __instance, RelicRarity relicRarity)
+    {
+        if (!DubiousConfig.RarityDisplay) return;
+        try
+        {
+            var color = RarityColors.GetRelicColor(relicRarity);
+            CompendiumHeaderRecolor.RecolorTitle(__instance._headerLabel, color);
+
+            // Ancient sub-categories (e.g. "Neow:") inherit the loc string's
+            // default color tag — recolor them to match the Ancient header.
+            if (relicRarity == RelicRarity.Ancient)
+            {
+                foreach (var sub in __instance._subCategories)
+                    CompendiumHeaderRecolor.RecolorTitle(sub._headerLabel, color);
+            }
+        }
+        catch (Exception e) { MainFile.Logger.Warn($"RarityDisplay relic header: {e.Message}"); }
+    }
+}
+
+[HarmonyPatch(typeof(NPotionLabCategory), "LoadPotions")]
+public static class PatchPotionLabCategoryHeader
+{
+    [HarmonyPostfix]
+    public static void Postfix(NPotionLabCategory __instance, PotionRarity potionRarity)
+    {
+        if (!DubiousConfig.RarityDisplay) return;
+        try
+        {
+            CompendiumHeaderRecolor.RecolorTitle(__instance._headerLabel, RarityColors.GetPotionColor(potionRarity));
+        }
+        catch (Exception e) { MainFile.Logger.Warn($"RarityDisplay potion header: {e.Message}"); }
     }
 }
 
