@@ -20,6 +20,9 @@ public partial class MainFile : Node
         Harmony harmony = new(ModId);
         harmony.PatchAll();
 
+        if (DubiousConfig.DamageMeter)
+            Patches.DamageMeterTracker.Install();
+
         // Force unified save path immediately in case it was already set
         if (DubiousConfig.UnifiedSavePath)
             UserDataPathProvider.IsRunningModded = false;

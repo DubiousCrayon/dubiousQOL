@@ -21,6 +21,7 @@ public static class DubiousConfig
     public static bool SkipSplash = true;
     public static bool IncomingDamageDisplay = true;
     public static bool MapHistory = true;
+    public static bool DamageMeter = true;
 
     private static string ConfigPath => Path.Combine(OS.GetUserDataDir(), "mod_configs", "dubiousQOL.cfg");
 
@@ -44,6 +45,7 @@ public static class DubiousConfig
             if (dict.TryGetValue(nameof(SkipSplash), out var s)) SkipSplash = s;
             if (dict.TryGetValue(nameof(IncomingDamageDisplay), out var i)) IncomingDamageDisplay = i;
             if (dict.TryGetValue(nameof(MapHistory), out var m)) MapHistory = m;
+            if (dict.TryGetValue(nameof(DamageMeter), out var dm)) DamageMeter = dm;
         }
         catch (Exception e)
         {
@@ -67,6 +69,7 @@ public static class DubiousConfig
                 [nameof(SkipSplash)] = SkipSplash,
                 [nameof(IncomingDamageDisplay)] = IncomingDamageDisplay,
                 [nameof(MapHistory)] = MapHistory,
+                [nameof(DamageMeter)] = DamageMeter,
             };
             File.WriteAllText(path, JsonSerializer.Serialize(dict, new JsonSerializerOptions { WriteIndented = true }));
         }
