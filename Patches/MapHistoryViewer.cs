@@ -233,7 +233,11 @@ internal partial class MapHistoryViewer : Control, IScreenContext
         {
             var srcLeft = _runHistoryScreen.GetNodeOrNull<Node>("LeftArrow");
             var srcRight = _runHistoryScreen.GetNodeOrNull<Node>("RightArrow");
-            if (srcLeft == null || srcRight == null) return;
+            if (srcLeft == null || srcRight == null)
+            {
+                MainFile.Logger.Warn($"MapHistory BuildSideArrows: source arrows not found (left={srcLeft != null}, right={srcRight != null})");
+                return;
+            }
 
             // Flags=4 → DUPLICATE_SCRIPTS only. Skipping DUPLICATE_SIGNALS avoids
             // carrying the source NRunHistory.OnLeftButtonButtonReleased Connect
@@ -241,7 +245,11 @@ internal partial class MapHistoryViewer : Control, IScreenContext
             // arrow is clicked. Children are duplicated regardless of flags.
             _prevArrow = srcLeft.Duplicate(4) as Control;
             _nextArrow = srcRight.Duplicate(4) as Control;
-            if (_prevArrow == null || _nextArrow == null) return;
+            if (_prevArrow == null || _nextArrow == null)
+            {
+                MainFile.Logger.Warn($"MapHistory BuildSideArrows: duplicate cast failed");
+                return;
+            }
 
             ConfigureSideArrow(_prevArrow, isLeft: true);
             ConfigureSideArrow(_nextArrow, isLeft: false);
@@ -249,33 +257,74 @@ internal partial class MapHistoryViewer : Control, IScreenContext
             AddChild(_prevArrow);
             AddChild(_nextArrow);
 
+            // Reset interactive state. The source arrows inherit from a disabled
+            // NRunHistoryArrowButton when the viewed run is the newest/oldest —
+            // Disable() sets _isEnabled=false, FocusMode=None, and tweens the
+            // icon's shader/scale. Without an Enable() call the clone's input
+            // handlers short-circuit (`if (_isEnabled && ...)`) and the button
+            // never responds to hover or clicks. Kill any inherited tween and
+            // reset modulate/scale so the arrow renders at full brightness.
+            ResetClonedArrow(_prevArrow);
+            ResetClonedArrow(_nextArrow);
+
             if (_prevArrow is NClickableControl prevClick)
                 prevClick.Released += _ => CycleAct(-1);
             if (_nextArrow is NClickableControl nextClick)
                 nextClick.Released += _ => CycleAct(+1);
         }
-        catch (Exception e) { MainFile.Logger.Warn($"MapHistory BuildSideArrows: {e.Message}"); }
+        catch (Exception e) { MainFile.Logger.Warn($"MapHistory BuildSideArrows: {e.Message}\n{e.StackTrace}"); }
     }
 
     private static void ConfigureSideArrow(Control arrow, bool isLeft)
     {
         arrow.Name = isLeft ? "DubiousMapPrevArrow" : "DubiousMapNextArrow";
-        arrow.Visible = false;
-        // Anchor to the vertical center of the corresponding edge. Width/height
-        // come from the duplicated scene's CustomMinimumSize / TextureRect size.
-        arrow.AnchorLeft = isLeft ? 0f : 1f;
-        arrow.AnchorRight = isLeft ? 0f : 1f;
-        arrow.AnchorTop = 0.5f;
-        arrow.AnchorBottom = 0.5f;
-        const float halfH = 60f;
-        const float width = 120f;
-        const float edgeInset = 64f;
-        arrow.OffsetTop = -halfH;
-        arrow.OffsetBottom = halfH;
-        if (isLeft) { arrow.OffsetLeft = edgeInset; arrow.OffsetRight = edgeInset + width; }
-        else { arrow.OffsetLeft = -(edgeInset + width); arrow.OffsetRight = -edgeInset; }
+        // Don't reanchor or reposition — Duplicate copies the source's anchors
+        // and offsets verbatim, and the viewer shares its FullRect layout with
+        // NRunHistory, so the clones land pixel-for-pixel where the source
+        // arrows sit on the run-history screen underneath.
 
-        if (arrow is NRunHistoryArrowButton arrowBtn) arrowBtn.IsLeft = isLeft;
+        // Don't call arrowBtn.IsLeft = isLeft — the setter dereferences _icon,
+        // which Godot's Duplicate(4) doesn't reliably remap on the clone (script-
+        // side Node references fall through to null), so the first call NREs and
+        // aborts BuildSideArrows before either arrow gets added. The source's
+        // _icon.FlipH is already oriented correctly (we cloned the left-pointing
+        // arrow for prev and the right-pointing one for next), and Duplicate
+        // preserves the TextureRect child's FlipH verbatim. Set the private
+        // _isLeft field via reflection purely so any internal logic keying off
+        // it behaves correctly — we don't use its hotkeys in the viewer.
+        if (arrow is NRunHistoryArrowButton arrowBtn)
+        {
+            try
+            {
+                var f = typeof(NRunHistoryArrowButton).GetField("_isLeft",
+                    System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+                f?.SetValue(arrowBtn, isLeft);
+            }
+            catch (Exception e) { MainFile.Logger.Warn($"MapHistory set _isLeft: {e.Message}"); }
+        }
+    }
+
+    private static void ResetClonedArrow(Control arrow)
+    {
+        // Force a fresh Enable() to restore _isEnabled, FocusMode, and hotkeys
+        // in case the source was disabled. NClickableControl.Enable early-returns
+        // when already enabled, so poke _isEnabled to false via Disable() first.
+        if (arrow is NClickableControl click)
+        {
+            try { click.Disable(); click.Enable(); }
+            catch (Exception e) { MainFile.Logger.Warn($"MapHistory ResetClonedArrow enable: {e.Message}"); }
+        }
+        // Reset visual state from any inherited hover/press tween. The inner
+        // TextureRect is where NGoldArrowButton applies scale and shader value,
+        // so poke it directly as well.
+        arrow.Modulate = Colors.White;
+        arrow.Scale = Vector2.One;
+        var icon = arrow.GetNodeOrNull<TextureRect>("TextureRect");
+        if (icon != null)
+        {
+            icon.Modulate = Colors.White;
+            icon.Scale = Vector2.One;
+        }
     }
 
     private void CycleAct(int delta)
