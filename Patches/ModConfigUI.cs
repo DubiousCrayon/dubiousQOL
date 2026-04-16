@@ -125,7 +125,7 @@ internal static class DubiousConfigModal
 
         var hint = new Label
         {
-            Text = "Toggle features on/off. Most apply live; Unified Save Path requires a restart.",
+            Text = "Toggle features on/off. Most apply live;(***) requires a restart.",
             HorizontalAlignment = HorizontalAlignment.Center,
             AutowrapMode = TextServer.AutowrapMode.WordSmart,
         };
@@ -136,11 +136,12 @@ internal static class DubiousConfigModal
         AddToggle(vbox, "Act Name Display", DubiousConfig.ActNameDisplay, v => DubiousConfig.ActNameDisplay = v);
         AddToggle(vbox, "Win Streak Display", DubiousConfig.WinStreakDisplay, v => DubiousConfig.WinStreakDisplay = v);
         AddToggle(vbox, "Deck Search", DubiousConfig.DeckSearch, v => DubiousConfig.DeckSearch = v);
-        AddToggle(vbox, "Rarity Display (hover tips)", DubiousConfig.RarityDisplay, v => DubiousConfig.RarityDisplay = v);
-        AddToggle(vbox, "Unified Save Path (restart required)", DubiousConfig.UnifiedSavePath, v => DubiousConfig.UnifiedSavePath = v);
+        AddToggle(vbox, "Rarity Display", DubiousConfig.RarityDisplay, v => DubiousConfig.RarityDisplay = v);
+        AddToggle(vbox, "Unified Save Path (***)", DubiousConfig.UnifiedSavePath, v => DubiousConfig.UnifiedSavePath = v);
         AddToggle(vbox, "Skip Splash Screen", DubiousConfig.SkipSplash, v => DubiousConfig.SkipSplash = v);
         AddToggle(vbox, "Incoming Damage Display", DubiousConfig.IncomingDamageDisplay, v => DubiousConfig.IncomingDamageDisplay = v);
-        AddToggle(vbox, "Map History (save maps + drawings to run history)", DubiousConfig.MapHistory, v => DubiousConfig.MapHistory = v);
+        AddToggle(vbox, "Map History", DubiousConfig.MapHistory, v => DubiousConfig.MapHistory = v);
+        AddToggle(vbox, "Stats Tracker", DubiousConfig.DamageMeter, v => DubiousConfig.DamageMeter = v);
 
         var close = new Button { Text = "Close", CustomMinimumSize = new Vector2(140, 36) };
         close.SizeFlagsHorizontal = Control.SizeFlags.ShrinkCenter;
