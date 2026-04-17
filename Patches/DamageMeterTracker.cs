@@ -10,6 +10,7 @@ using MegaCrit.Sts2.Core.Combat;
 using MegaCrit.Sts2.Core.Combat.History;
 using MegaCrit.Sts2.Core.Combat.History.Entries;
 using MegaCrit.Sts2.Core.Entities.Creatures;
+using MegaCrit.Sts2.Core.Models.Powers;
 using MegaCrit.Sts2.Core.Platform;
 using MegaCrit.Sts2.Core.Runs;
 using MegaCrit.Sts2.Core.Saves;
@@ -61,9 +62,16 @@ internal static class DamageMeterTracker
     public static readonly DmScopeStats Run = new();
     public static event Action? Updated;
 
+    internal const ulong UnattributedId = 0;
+
     private static bool _installed;
     private static bool _hookedHistory;
     private static int _processedCount;
+
+    // Tracks which players applied damage-dealing debuffs to each enemy,
+    // so null-dealer damage (Poison/Haunt/Strangle ticks) can be attributed
+    // to the correct player(s). Populated from PowerReceivedEntry.
+    private static readonly Dictionary<Creature, HashSet<ulong>> _debuffDealers = new();
 
     internal static DmScopeStats ForScope(DmScope scope) => scope switch
     {
@@ -89,6 +97,7 @@ internal static class DamageMeterTracker
     {
         Combat.Reset();
         _processedCount = 0;
+        _debuffDealers.Clear();
         if (!_hookedHistory)
         {
             // History is a singleton property on CombatManager (constructed in its
@@ -146,9 +155,26 @@ internal static class DamageMeterTracker
     {
         switch (entry)
         {
+            case PowerReceivedEntry p: ProcessPower(p); break;
             case DamageReceivedEntry d: ProcessDamage(d); break;
             case BlockGainedEntry b: ProcessBlock(b); break;
         }
+    }
+
+    private static void ProcessPower(PowerReceivedEntry p)
+    {
+        if (p.Amount <= 0 || p.Applier == null) return;
+        if (p.Power is not (PoisonPower or HauntPower or StranglePower)) return;
+        var receiver = p.Actor;
+        if (receiver.Side != CombatSide.Enemy) return;
+        var applier = p.Applier;
+        var owner = applier.IsPlayer ? applier.Player
+                  : applier.IsPet ? applier.PetOwner
+                  : null;
+        if (owner == null) return;
+        if (!_debuffDealers.TryGetValue(receiver, out var set))
+            _debuffDealers[receiver] = set = new HashSet<ulong>();
+        set.Add(owner.NetId);
     }
 
     private static void ProcessDamage(DamageReceivedEntry d)
@@ -156,18 +182,45 @@ internal static class DamageMeterTracker
         var total = d.Result.TotalDamage;
         if (total <= 0) return;
 
-        var dealer = d.Dealer;
-        if (dealer != null && d.Receiver != null && d.Receiver.Side == CombatSide.Enemy)
+        if (d.Receiver != null && d.Receiver.Side == CombatSide.Enemy)
         {
-            var owner = dealer.IsPlayer ? dealer.Player
-                      : dealer.IsPet ? dealer.PetOwner
-                      : null;
-            if (owner != null)
-                AddAll(owner.NetId, s => s.DamageDealt += total);
+            var dealer = d.Dealer;
+            if (dealer != null)
+            {
+                var owner = dealer.IsPlayer ? dealer.Player
+                          : dealer.IsPet ? dealer.PetOwner
+                          : null;
+                if (owner != null)
+                    AddAll(owner.NetId, s => s.DamageDealt += total);
+            }
+            else
+            {
+                AttributeNullDealerDamage(d.Receiver, total);
+            }
         }
 
         if (d.Receiver != null && d.Receiver.IsPlayer && d.Receiver.Player != null)
             AddAll(d.Receiver.Player.NetId, s => s.DamageTaken += total);
+    }
+
+    private static void AttributeNullDealerDamage(Creature receiver, int total)
+    {
+        if (_debuffDealers.TryGetValue(receiver, out var appliers) && appliers.Count > 0)
+        {
+            int share = total / appliers.Count;
+            int remainder = total % appliers.Count;
+            int i = 0;
+            foreach (var netId in appliers)
+            {
+                int amt = share + (i < remainder ? 1 : 0);
+                AddAll(netId, s => s.DamageDealt += amt);
+                i++;
+            }
+        }
+        else
+        {
+            AddAll(UnattributedId, s => s.DamageDealt += total);
+        }
     }
 
     private static void ProcessBlock(BlockGainedEntry b)

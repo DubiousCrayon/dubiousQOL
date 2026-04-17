@@ -68,16 +68,17 @@ internal sealed partial class DamageMeterOverlay : Control
     private const float DefaultW = 340f;
     private const float DefaultRightMargin = 2f;
     private const float DefaultTopMargin = 85f;
-    private const float MinW = 220f;
-    private const float MinH = 100f;
+    private const float MinW = 250f;
+
     // Fixed chrome (title+tabs+metric+agg+sep + vbox separations + bottom pad).
     // Measured from BuildUi; bump if you add another row to the header block.
     private const float HeaderHeightExpanded = 145f;
     private const float HeaderHeightCollapsed = 60f;
-    private const float RowStrideH = 34f; // RowH (32) + rowBox separation (2)
+    private const float RowStrideH = 24f; // RowH (22) + rowBox separation (2)
     private const float TitleH = 22f;
-    private const float RowH = 32f;
-    private const float Pad = 6f;
+    private const float RowH = 22f;
+    private const float Pad = 1f;
+    private const float PadLarge = 3f;
 
     private static readonly string[] MetricNames = { "Damage Dealt", "Block Gained", "Damage Taken" };
     private static readonly string[] ScopeNames = { "Combat", "Act", "Run" };
@@ -122,6 +123,7 @@ internal sealed partial class DamageMeterOverlay : Control
     private Vector2 _sizeStart;
     private Vector2 _positionStart;
     private bool _userResized;
+    private float _contentHeight;
 
     private Label _metricLabel = null!;
     private VBoxContainer _rowBox = null!;
@@ -220,9 +222,9 @@ internal sealed partial class DamageMeterOverlay : Control
 
         var vbox = new VBoxContainer { MouseFilter = MouseFilterEnum.Ignore };
         vbox.SetAnchorsPreset(LayoutPreset.FullRect);
-        vbox.OffsetLeft = Pad;
-        vbox.OffsetTop = 0;
-        vbox.OffsetRight = -Pad;
+        vbox.OffsetLeft = PadLarge;
+        vbox.OffsetTop = 4;
+        vbox.OffsetRight = -(PadLarge);
         vbox.OffsetBottom = -Pad;
         vbox.AddThemeConstantOverride("separation", 3);
         AddChild(vbox);
@@ -319,7 +321,11 @@ internal sealed partial class DamageMeterOverlay : Control
 
     private void ToggleFilterCollapse()
     {
+        float oldHeader = CurrentHeaderHeight;
         _filtersCollapsed = !_filtersCollapsed;
+        float delta = CurrentHeaderHeight - oldHeader;
+        if (_userResized)
+            Size = new Vector2(Size.X, Size.Y + delta);
         UpdateFilterCollapse();
         Refresh();
     }
@@ -488,19 +494,19 @@ internal sealed partial class DamageMeterOverlay : Control
             case ResizeEdge.BottomRight:
                 handle.AnchorLeft = 1; handle.AnchorTop = 1;
                 handle.AnchorRight = 1; handle.AnchorBottom = 1;
-                handle.OffsetLeft = -7; handle.OffsetTop = -7;
+                handle.OffsetLeft = -5; handle.OffsetTop = -5;
                 handle.MouseDefaultCursorShape = CursorShape.Fdiagsize;
                 break;
             case ResizeEdge.BottomLeft:
                 handle.AnchorLeft = 0; handle.AnchorTop = 1;
                 handle.AnchorRight = 0; handle.AnchorBottom = 1;
-                handle.OffsetRight = 7; handle.OffsetTop = -7;
+                handle.OffsetRight = 5; handle.OffsetTop = -5;
                 handle.MouseDefaultCursorShape = CursorShape.Bdiagsize;
                 break;
             case ResizeEdge.Bottom:
                 handle.AnchorLeft = 0; handle.AnchorTop = 1;
                 handle.AnchorRight = 1; handle.AnchorBottom = 1;
-                handle.OffsetLeft = 7; handle.OffsetRight = -7;
+                handle.OffsetLeft = 5; handle.OffsetRight = -5;
                 handle.OffsetTop = -5;
                 handle.MouseDefaultCursorShape = CursorShape.Vsize;
                 break;
@@ -540,9 +546,20 @@ internal sealed partial class DamageMeterOverlay : Control
             }
         }
 
-        // Include any netIds the tracker saw that aren't in live Players (dead/despawned).
+        // Include any netIds the tracker saw that aren't in live Players (dead/despawned)
+        // or the special Unattributed bucket.
         foreach (var kv in scope.ByPlayer)
         {
+            if (kv.Key == DamageMeterTracker.UnattributedId)
+            {
+                long raw = GetMetric(kv.Value);
+                if (raw > 0)
+                {
+                    float val = _perTurn ? (float)raw / turns : raw;
+                    entries.Add((val, new Color(0.55f, 0.55f, 0.55f), null, "Unattributed"));
+                }
+                continue;
+            }
             bool present = false;
             if (state?.Players != null)
             {
@@ -550,9 +567,9 @@ internal sealed partial class DamageMeterOverlay : Control
                     if (p != null && p.NetId == kv.Key) { present = true; break; }
             }
             if (present) continue;
-            long raw = GetMetric(kv.Value);
-            float val = _perTurn ? (float)raw / turns : raw;
-            entries.Add((val, new Color(0.6f, 0.6f, 0.6f), null, showNames ? ResolvePlayerName(kv.Key) : ""));
+            long raw2 = GetMetric(kv.Value);
+            float val2 = _perTurn ? (float)raw2 / turns : raw2;
+            entries.Add((val2, new Color(0.6f, 0.6f, 0.6f), null, showNames ? ResolvePlayerName(kv.Key) : ""));
         }
 
         entries.Sort((a, b) => b.value.CompareTo(a.value));
@@ -563,12 +580,10 @@ internal sealed partial class DamageMeterOverlay : Control
         foreach (var e in entries)
             _rowBox.AddChild(MakeRow(e.value, max, e.color, e.icon, e.name));
 
+        int n = Math.Max(1, entries.Count);
+        _contentHeight = CurrentHeaderHeight + n * RowStrideH + Pad;
         if (!_userResized)
-        {
-            int n = Math.Max(1, entries.Count);
-            float h = CurrentHeaderHeight + n * RowStrideH;
-            Size = new Vector2(Size.X, h);
-        }
+            Size = new Vector2(Size.X, _contentHeight);
 
         UpdateFilterCollapse();
     }
@@ -629,7 +644,7 @@ internal sealed partial class DamageMeterOverlay : Control
             icon = new TextureRect
             {
                 Texture = iconTex,
-                CustomMinimumSize = new Vector2(26, 26),
+                CustomMinimumSize = new Vector2(18, 18),
                 ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize,
                 StretchMode = TextureRect.StretchModeEnum.KeepAspectCentered,
                 SizeFlagsVertical = SizeFlags.ShrinkCenter,
@@ -640,7 +655,7 @@ internal sealed partial class DamageMeterOverlay : Control
         {
             icon = new ColorRect
             {
-                CustomMinimumSize = new Vector2(24, 24),
+                CustomMinimumSize = new Vector2(18, 18),
                 Color = barColor,
                 SizeFlagsVertical = SizeFlags.ShrinkCenter,
                 MouseFilter = MouseFilterEnum.Ignore,
@@ -652,8 +667,7 @@ internal sealed partial class DamageMeterOverlay : Control
         var barBg = new Panel
         {
             SizeFlagsHorizontal = SizeFlags.ExpandFill,
-            CustomMinimumSize = new Vector2(0, 20),
-            SizeFlagsVertical = SizeFlags.ShrinkCenter,
+            SizeFlagsVertical = SizeFlags.Fill,
             MouseFilter = MouseFilterEnum.Ignore,
         };
         barBg.AddThemeStyleboxOverride("panel", MakeStyleBox(BarBgColor, 3));
@@ -759,14 +773,14 @@ internal sealed partial class DamageMeterOverlay : Control
             {
                 case ResizeEdge.BottomRight:
                     newW = Mathf.Max(MinW, _sizeStart.X + delta.X);
-                    newH = Mathf.Max(MinH, _sizeStart.Y + delta.Y);
+                    newH = Mathf.Max(_contentHeight, _sizeStart.Y + delta.Y);
                     break;
                 case ResizeEdge.Bottom:
-                    newH = Mathf.Max(MinH, _sizeStart.Y + delta.Y);
+                    newH = Mathf.Max(_contentHeight, _sizeStart.Y + delta.Y);
                     break;
                 case ResizeEdge.BottomLeft:
                     newW = Mathf.Max(MinW, _sizeStart.X - delta.X);
-                    newH = Mathf.Max(MinH, _sizeStart.Y + delta.Y);
+                    newH = Mathf.Max(_contentHeight, _sizeStart.Y + delta.Y);
                     // Shift X so the right edge stays pinned while the left drags.
                     newX = _positionStart.X + (_sizeStart.X - newW);
                     break;
