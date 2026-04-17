@@ -15,21 +15,21 @@ internal enum DmMetric { DamageDealt, BlockGained, DamageTaken }
 internal enum DmScope { Combat, Act, Run }
 
 [HarmonyPatch]
-public static class PatchDamageMeter
+public static class PatchStatsTracker
 {
-    internal static DamageMeterOverlay? Overlay { get; private set; }
+    internal static StatsTrackerOverlay? Overlay { get; private set; }
 
     [HarmonyPatch(typeof(NRun), "_Ready")]
     [HarmonyPostfix]
     public static void AfterRunReady(NRun __instance)
     {
-        if (!DubiousConfig.DamageMeter) return;
+        if (!DubiousConfig.StatsTracker) return;
         try
         {
             Dispose();
             var globalUi = __instance.GlobalUi;
             if (globalUi == null) return;
-            Overlay = new DamageMeterOverlay
+            Overlay = new StatsTrackerOverlay
             {
                 // Stay responsive (F8, close button) even when the capstone
                 // pauses combat — parent inherits the paused state otherwise.
@@ -44,7 +44,7 @@ public static class PatchDamageMeter
             // and the rest of the in-run HUD like the old CanvasLayer did.
             globalUi.CallDeferred(Node.MethodName.AddChild, Overlay);
         }
-        catch (Exception e) { MainFile.Logger.Warn($"DamageMeter mount: {e.Message}"); }
+        catch (Exception e) { MainFile.Logger.Warn($"StatsTracker mount: {e.Message}"); }
     }
 
     [HarmonyPatch(typeof(RunManager), nameof(RunManager.CleanUp))]
@@ -52,7 +52,7 @@ public static class PatchDamageMeter
     public static void AfterCleanUp()
     {
         try { Dispose(); }
-        catch (Exception e) { MainFile.Logger.Warn($"DamageMeter unmount: {e.Message}"); }
+        catch (Exception e) { MainFile.Logger.Warn($"StatsTracker unmount: {e.Message}"); }
     }
 
     private static void Dispose()
@@ -63,7 +63,7 @@ public static class PatchDamageMeter
     }
 }
 
-internal sealed partial class DamageMeterOverlay : Control
+internal sealed partial class StatsTrackerOverlay : Control
 {
     private const float DefaultW = 340f;
     private const float DefaultRightMargin = 2f;
@@ -137,9 +137,9 @@ internal sealed partial class DamageMeterOverlay : Control
     private RichTextLabel _summaryLabel = null!;
     private Label _summaryChevron = null!;
 
-    public DamageMeterOverlay()
+    public StatsTrackerOverlay()
     {
-        Name = "DubiousDamageMeter";
+        Name = "DubiousStatsTracker";
         Size = new Vector2(DefaultW, CurrentHeaderHeight + RowStrideH); // placeholder; Refresh() will size to content
         MouseFilter = MouseFilterEnum.Ignore;
         BuildUi();
@@ -159,13 +159,13 @@ internal sealed partial class DamageMeterOverlay : Control
     public override void _EnterTree()
     {
         base._EnterTree();
-        DamageMeterTracker.Updated += OnTrackerUpdated;
+        StatsTrackerData.Updated += OnTrackerUpdated;
     }
 
     public override void _ExitTree()
     {
         base._ExitTree();
-        DamageMeterTracker.Updated -= OnTrackerUpdated;
+        StatsTrackerData.Updated -= OnTrackerUpdated;
     }
 
     private void OnTrackerUpdated()
@@ -523,7 +523,7 @@ internal sealed partial class DamageMeterOverlay : Control
             child.QueueFree();
 
         var state = RunManager.Instance?.DebugOnlyGetState();
-        var scope = DamageMeterTracker.ForScope(_scope);
+        var scope = StatsTrackerData.ForScope(_scope);
         int turns = Math.Max(1, scope.PlayerTurns);
 
         // Only surface names in multiplayer — in singleplayer there's exactly one
@@ -550,7 +550,7 @@ internal sealed partial class DamageMeterOverlay : Control
         // or the special Unattributed bucket.
         foreach (var kv in scope.ByPlayer)
         {
-            if (kv.Key == DamageMeterTracker.UnattributedId)
+            if (kv.Key == StatsTrackerData.UnattributedId)
             {
                 long raw = GetMetric(kv.Value);
                 if (raw > 0)
@@ -607,7 +607,7 @@ internal sealed partial class DamageMeterOverlay : Control
                 if (!string.IsNullOrEmpty(name) && name != lookupId.ToString()) return name;
             }
         }
-        catch (Exception e) { MainFile.Logger.Warn($"DamageMeter name lookup: {e.Message}"); }
+        catch (Exception e) { MainFile.Logger.Warn($"StatsTracker name lookup: {e.Message}"); }
         return "P" + netId;
     }
 

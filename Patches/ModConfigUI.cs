@@ -141,7 +141,7 @@ internal static class DubiousConfigModal
         AddToggle(vbox, "Skip Splash Screen", DubiousConfig.SkipSplash, v => DubiousConfig.SkipSplash = v);
         AddToggle(vbox, "Incoming Damage Display", DubiousConfig.IncomingDamageDisplay, v => DubiousConfig.IncomingDamageDisplay = v);
         AddToggle(vbox, "Map History", DubiousConfig.MapHistory, v => DubiousConfig.MapHistory = v);
-        AddToggle(vbox, "Stats Tracker", DubiousConfig.DamageMeter, v => DubiousConfig.DamageMeter = v);
+        AddToggle(vbox, "Stats Tracker", DubiousConfig.StatsTracker, v => DubiousConfig.StatsTracker = v);
 
         var close = new Button { Text = "Close", CustomMinimumSize = new Vector2(140, 36) };
         close.SizeFlagsHorizontal = Control.SizeFlags.ShrinkCenter;

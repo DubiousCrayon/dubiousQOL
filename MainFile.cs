@@ -20,8 +20,8 @@ public partial class MainFile : Node
         Harmony harmony = new(ModId);
         harmony.PatchAll();
 
-        if (DubiousConfig.DamageMeter)
-            Patches.DamageMeterTracker.Install();
+        if (DubiousConfig.StatsTracker)
+            Patches.StatsTrackerData.Install();
 
         // Force unified save path immediately in case it was already set
         if (DubiousConfig.UnifiedSavePath)

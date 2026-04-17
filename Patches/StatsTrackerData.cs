@@ -55,7 +55,7 @@ internal sealed class DmScopeStats
     }
 }
 
-internal static class DamageMeterTracker
+internal static class StatsTrackerData
 {
     public static readonly DmScopeStats Combat = new();
     public static readonly DmScopeStats Act = new();
@@ -90,7 +90,7 @@ internal static class DamageMeterTracker
             RunManager.Instance.ActEntered += ResetAct;
             CombatManager.Instance.CombatSetUp += _ => OnCombatSetUp();
         }
-        catch (Exception e) { MainFile.Logger.Warn($"DamageMeterTracker install: {e.Message}"); }
+        catch (Exception e) { MainFile.Logger.Warn($"StatsTrackerData install: {e.Message}"); }
     }
 
     private static void OnCombatSetUp()
@@ -148,7 +148,7 @@ internal static class DamageMeterTracker
             _processedCount = entries.Count;
             Updated?.Invoke();
         }
-        catch (Exception e) { MainFile.Logger.Warn($"DamageMeterTracker history: {e.Message}"); }
+        catch (Exception e) { MainFile.Logger.Warn($"StatsTrackerData history: {e.Message}"); }
     }
 
     private static void Process(CombatHistoryEntry entry)
@@ -239,14 +239,14 @@ internal static class DamageMeterTracker
 }
 
 [HarmonyPatch(typeof(RunHistoryUtilities), nameof(RunHistoryUtilities.CreateRunHistoryEntry))]
-public static class PatchDamageMeterWriteSidecar
+public static class PatchStatsTrackerWriteSidecar
 {
     [HarmonyPostfix]
     public static void Postfix(SerializableRun run)
     {
-        if (!DubiousConfig.DamageMeter) return;
-        try { DamageMeterIO.Write(run.StartTime); }
-        catch (Exception e) { MainFile.Logger.Warn($"DamageMeter sidecar: {e.Message}"); }
+        if (!DubiousConfig.StatsTracker) return;
+        try { StatsTrackerIO.Write(run.StartTime); }
+        catch (Exception e) { MainFile.Logger.Warn($"StatsTracker sidecar: {e.Message}"); }
     }
 }
 
@@ -266,7 +266,7 @@ internal sealed class DmSidecar
     [JsonPropertyName("players")] public List<DmSidecarPlayer> Players { get; set; } = new();
 }
 
-internal static class DamageMeterIO
+internal static class StatsTrackerIO
 {
     private const string Suffix = ".dm.json";
 
@@ -289,7 +289,7 @@ internal static class DamageMeterIO
         }
         catch (Exception e)
         {
-            MainFile.Logger.Warn($"DamageMeter path resolve: {e.Message}");
+            MainFile.Logger.Warn($"StatsTracker path resolve: {e.Message}");
             return null;
         }
     }
@@ -298,11 +298,11 @@ internal static class DamageMeterIO
     {
         var path = SidecarPath(startTime);
         if (path == null) return;
-        if (DamageMeterTracker.Run.ByPlayer.Count == 0) return;
+        if (StatsTrackerData.Run.ByPlayer.Count == 0) return;
 
-        var side = new DmSidecar { RunTurns = DamageMeterTracker.Run.PlayerTurns };
+        var side = new DmSidecar { RunTurns = StatsTrackerData.Run.PlayerTurns };
         var state = RunManager.Instance?.DebugOnlyGetState();
-        foreach (var kv in DamageMeterTracker.Run.ByPlayer)
+        foreach (var kv in StatsTrackerData.Run.ByPlayer)
         {
             string? character = null;
             try { character = state?.GetPlayer(kv.Key)?.Character?.Title.GetFormattedText(); }
@@ -330,7 +330,7 @@ internal static class DamageMeterIO
         }
         catch (Exception e)
         {
-            MainFile.Logger.Warn($"DamageMeter sidecar read: {e.Message}");
+            MainFile.Logger.Warn($"StatsTracker sidecar read: {e.Message}");
             return null;
         }
     }
