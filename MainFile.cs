@@ -1,3 +1,5 @@
+using dubiousQOL.Config;
+using dubiousQOL.Patches;
 using Godot;
 using HarmonyLib;
 using MegaCrit.Sts2.Core.Modding;
@@ -15,16 +17,15 @@ public partial class MainFile : Node
 
     public static void Initialize()
     {
-        DubiousConfig.Load();
+        ConfigRegistry.LoadAll();
 
         Harmony harmony = new(ModId);
         harmony.PatchAll();
 
-        if (DubiousConfig.StatsTracker)
-            Patches.StatsTrackerData.Install();
+        if (StatsTrackerConfig.Instance.Enabled)
+            StatsTrackerData.Install();
 
-        // Force unified save path immediately in case it was already set
-        if (DubiousConfig.UnifiedSavePath)
+        if (UnifiedSavePathConfig.Instance.Enabled)
             UserDataPathProvider.IsRunningModded = false;
     }
 }

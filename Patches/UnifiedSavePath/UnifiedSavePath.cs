@@ -14,7 +14,7 @@ public static class PatchGetIsRunningModded
     [HarmonyPrefix]
     public static bool Prefix(ref bool __result)
     {
-        if (!DubiousConfig.UnifiedSavePath) return true;
+        if (!UnifiedSavePathConfig.Instance.Enabled) return true;
         __result = false;
         return false;
     }
@@ -26,7 +26,7 @@ public static class PatchSetIsRunningModded
     [HarmonyPrefix]
     public static bool Prefix(ref bool value)
     {
-        if (!DubiousConfig.UnifiedSavePath) return true;
+        if (!UnifiedSavePathConfig.Instance.Enabled) return true;
         value = false;
         return true;
     }
@@ -38,7 +38,7 @@ public static class PatchGetProfileDir
     [HarmonyPrefix]
     public static bool Prefix(int profileId, ref string __result)
     {
-        if (!DubiousConfig.UnifiedSavePath) return true;
+        if (!UnifiedSavePathConfig.Instance.Enabled) return true;
         __result = $"profile{profileId}";
         return false;
     }

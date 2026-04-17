@@ -119,7 +119,7 @@ public static class PatchActNameDisplay
     [HarmonyPostfix]
     public static void Postfix(NTopBarBossIcon __instance)
     {
-        if (!DubiousConfig.ActNameDisplay) return;
+        if (!ActNameDisplayConfig.Instance.Enabled) return;
         try { UpdateLabel(__instance); }
         catch (Exception e) { MainFile.Logger.Warn($"ActNameDisplay: {e.Message}"); }
     }

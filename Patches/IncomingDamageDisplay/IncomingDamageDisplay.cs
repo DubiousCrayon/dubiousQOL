@@ -62,7 +62,7 @@ public static class PatchIncomingDamageDisplay
     [HarmonyPostfix]
     public static void AfterSetCreature(NCreatureStateDisplay __instance, Creature creature)
     {
-        if (!DubiousConfig.IncomingDamageDisplay) return;
+        if (!IncomingDamageDisplayConfig.Instance.Enabled) return;
         try
         {
             if (creature == null || creature.Side != CombatSide.Player) return;
@@ -81,7 +81,7 @@ public static class PatchIncomingDamageDisplay
     [HarmonyPostfix]
     public static void AfterRefresh(NCreatureStateDisplay __instance)
     {
-        if (!DubiousConfig.IncomingDamageDisplay) return;
+        if (!IncomingDamageDisplayConfig.Instance.Enabled) return;
         try
         {
             var bar = GetAnchorBar(__instance);

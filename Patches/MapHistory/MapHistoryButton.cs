@@ -30,7 +30,7 @@ public static class PatchMapHistoryButton
         [HarmonyPostfix]
         public static void Postfix(NRunHistory __instance)
         {
-            if (!DubiousConfig.MapHistory) return;
+            if (!MapHistoryConfig.Instance.Enabled) return;
             try { InjectButton(__instance); }
             catch (Exception e) { MainFile.Logger.Warn($"MapHistoryButton inject: {e.Message}"); }
         }
@@ -42,7 +42,7 @@ public static class PatchMapHistoryButton
         [HarmonyPostfix]
         public static void Postfix(NRunHistory __instance, RunHistory history)
         {
-            if (!DubiousConfig.MapHistory) return;
+            if (!MapHistoryConfig.Instance.Enabled) return;
             try
             {
                 CurrentHistory = history;

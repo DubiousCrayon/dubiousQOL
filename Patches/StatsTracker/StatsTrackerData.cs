@@ -244,7 +244,7 @@ public static class PatchStatsTrackerWriteSidecar
     [HarmonyPostfix]
     public static void Postfix(SerializableRun run)
     {
-        if (!DubiousConfig.StatsTracker) return;
+        if (!StatsTrackerConfig.Instance.Enabled) return;
         try { StatsTrackerIO.Write(run.StartTime); }
         catch (Exception e) { MainFile.Logger.Warn($"StatsTracker sidecar: {e.Message}"); }
     }

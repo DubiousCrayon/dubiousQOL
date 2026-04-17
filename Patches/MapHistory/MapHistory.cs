@@ -47,7 +47,7 @@ public static class MapHistoryCapture
         [HarmonyPrefix]
         public static void Prefix(int currentActIndex)
         {
-            if (!DubiousConfig.MapHistory) return;
+            if (!MapHistoryConfig.Instance.Enabled) return;
             try
             {
                 var state = Traverse.Create(RunManager.Instance).Property("State").GetValue();
@@ -90,7 +90,7 @@ public static class MapHistoryCapture
         [HarmonyPostfix]
         public static void Postfix(SerializableRun run)
         {
-            if (!DubiousConfig.MapHistory) return;
+            if (!MapHistoryConfig.Instance.Enabled) return;
             try
             {
                 // Merge the current act's map from the finalized SerializableRun — the

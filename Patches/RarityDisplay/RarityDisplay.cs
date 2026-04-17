@@ -131,7 +131,7 @@ public static class PatchRelicCollectionCategoryHeader
     [HarmonyPostfix]
     public static void Postfix(NRelicCollectionCategory __instance, RelicRarity relicRarity)
     {
-        if (!DubiousConfig.RarityDisplay) return;
+        if (!RarityDisplayConfig.Instance.Enabled) return;
         try
         {
             var color = RarityColors.GetRelicColor(relicRarity);
@@ -155,7 +155,7 @@ public static class PatchPotionLabCategoryHeader
     [HarmonyPostfix]
     public static void Postfix(NPotionLabCategory __instance, PotionRarity potionRarity)
     {
-        if (!DubiousConfig.RarityDisplay) return;
+        if (!RarityDisplayConfig.Instance.Enabled) return;
         try
         {
             CompendiumHeaderRecolor.RecolorTitle(__instance._headerLabel, RarityColors.GetPotionColor(potionRarity));
@@ -170,7 +170,7 @@ public static class PatchHoverTipInit
     [HarmonyPostfix]
     public static void Postfix(NHoverTipSet __instance, IEnumerable<IHoverTip> hoverTips)
     {
-        if (!DubiousConfig.RarityDisplay) return;
+        if (!RarityDisplayConfig.Instance.Enabled) return;
         var container = __instance._textHoverTipContainer;
         if (container == null) return;
 

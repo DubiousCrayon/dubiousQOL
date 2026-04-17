@@ -23,7 +23,7 @@ public static class PatchStatsTracker
     [HarmonyPostfix]
     public static void AfterRunReady(NRun __instance)
     {
-        if (!DubiousConfig.StatsTracker) return;
+        if (!StatsTrackerConfig.Instance.Enabled) return;
         try
         {
             Dispose();

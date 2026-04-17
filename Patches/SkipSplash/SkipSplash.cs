@@ -13,7 +13,7 @@ public static class PatchSkipSplash
     [HarmonyPrefix]
     public static void Prefix(ref bool skipLogo)
     {
-        if (!DubiousConfig.SkipSplash) return;
+        if (!SkipSplashConfig.Instance.Enabled) return;
         skipLogo = true;
     }
 }
