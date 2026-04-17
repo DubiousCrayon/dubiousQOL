@@ -52,6 +52,8 @@ public static class PatchMapHistoryButton
                 if (btn == null || history == null) return;
                 bool hasMaps = MapHistoryIO.Exists(history.StartTime);
                 btn.Disabled = !hasMaps;
+                btn.MouseFilter = hasMaps ? Control.MouseFilterEnum.Stop : Control.MouseFilterEnum.Ignore;
+                if (!hasMaps) { btn.Modulate = Colors.White; btn.Scale = Vector2.One; }
                 btn.TooltipText = hasMaps
                     ? "View saved per-act maps"
                     : "No map saved for this run (pre-feature run history)";

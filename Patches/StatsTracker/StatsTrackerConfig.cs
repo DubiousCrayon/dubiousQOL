@@ -11,6 +11,7 @@ internal class StatsTrackerConfig : FeatureConfig
     public override string Name => "Stats Tracker";
     public override string Description => "Per-player damage/block/taken stats overlay during runs.";
     public override bool EnabledByDefault => true;
+    public override bool RequiresRestart => true;
 
     public float DefaultWidth => GetFloat("DefaultWidth");
     public float DefaultTopMargin => GetFloat("DefaultTopMargin");

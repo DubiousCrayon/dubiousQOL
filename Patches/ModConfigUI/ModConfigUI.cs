@@ -6,6 +6,7 @@ using MegaCrit.Sts2.Core.Nodes.CommonUi;
 using MegaCrit.Sts2.Core.Nodes.GodotExtensions;
 using MegaCrit.Sts2.Core.Nodes.Screens.ScreenContext;
 using MegaCrit.Sts2.Core.Nodes.Screens.Settings;
+using MegaCrit.Sts2.Core.Runs;
 
 namespace dubiousQOL.Patches;
 
@@ -51,11 +52,14 @@ public static class PatchModConfigSettingsRow
         button.Owner = screen;
 
         var rowLabel = newRow.GetNodeOrNull<RichTextLabel>("Label");
-        if (rowLabel != null) rowLabel.CallDeferred("set_text", "Mod Configuration (dubiousQOL)");
+        if (rowLabel != null) rowLabel.CallDeferred("set_text", "dubiousQOL Mod Configuration");
         var btnLabel = button.GetNodeOrNull<Label>("Label");
         if (btnLabel != null) btnLabel.CallDeferred("set_text", "Open Config");
 
         button.Connect(NClickableControl.SignalName.Released, Callable.From<NButton>(_ => DubiousConfigModal.Open(screen)));
+
+        if (RunManager.Instance.IsInProgress)
+            button.CallDeferred(NClickableControl.MethodName.Disable);
     }
 }
 
@@ -63,6 +67,19 @@ internal partial class DubiousConfigPanel : Control, IScreenContext
 {
     private Control? _firstFocusable;
     public Control? DefaultFocusedControl => _firstFocusable;
+
+    public override void _UnhandledInput(InputEvent @event)
+    {
+        if (@event is InputEventKey k && k.Pressed && !k.Echo && k.Keycode == Key.Escape)
+        {
+            var popup = FindChild("RestoreConfirmPopup", recursive: true, owned: false);
+            if (popup != null)
+                popup.QueueFree();
+            else
+                NModalContainer.Instance?.Clear();
+            GetViewport().SetInputAsHandled();
+        }
+    }
 }
 
 internal static class DubiousConfigModal
@@ -289,6 +306,9 @@ internal static class DubiousConfigModal
         desc.AddThemeColorOverride("font_color", DimText);
         vbox.AddChild(desc);
 
+        // Collect entry controls so Restore to Defaults can update them.
+        var entryControls = new System.Collections.Generic.List<(ConfigEntry entry, Control control)>();
+
         if (config.Entries.Count == 0)
         {
             var empty = new Label
@@ -303,8 +323,32 @@ internal static class DubiousConfigModal
         else
         {
             foreach (var entry in config.Entries)
-                vbox.AddChild(BuildEntryRow(config, entry));
+            {
+                var row = BuildEntryRow(config, entry);
+                vbox.AddChild(row);
+                entryControls.Add((entry, row));
+            }
         }
+
+        var restoreBtn = new Button
+        {
+            Text = "Restore to Defaults",
+            CustomMinimumSize = new Vector2(180, 32),
+            SizeFlagsHorizontal = Control.SizeFlags.ShrinkCenter,
+        };
+        restoreBtn.AddThemeFontSizeOverride("font_size", 13);
+        if (config.Entries.Count == 0)
+        {
+            // TODO: enable when config settings are added for this feature
+            restoreBtn.Disabled = true;
+        }
+        else
+        {
+            var capturedControls = entryControls;
+            var capturedConfig = config;
+            restoreBtn.Pressed += () => ShowRestoreConfirmation(capturedConfig, capturedControls);
+        }
+        vbox.AddChild(restoreBtn);
 
         pad.AddChild(vbox);
         scroll.AddChild(pad);
@@ -345,11 +389,12 @@ internal static class DubiousConfigModal
             }
             case ConfigEntryType.Int:
             {
+                // Min/Max must be set before Value — Godot's Range clamps on assignment.
                 var spin = new SpinBox
                 {
-                    Value = (int)entry.Value,
                     MinValue = entry.Min ?? 0,
                     MaxValue = entry.Max ?? 9999,
+                    Value = (int)entry.Value,
                     Step = 1,
                     CustomMinimumSize = new Vector2(100, 0),
                 };
@@ -361,9 +406,9 @@ internal static class DubiousConfigModal
             {
                 var spin = new SpinBox
                 {
-                    Value = (float)entry.Value,
                     MinValue = entry.Min ?? 0f,
                     MaxValue = entry.Max ?? 9999f,
+                    Value = (float)entry.Value,
                     Step = 0.1,
                     CustomMinimumSize = new Vector2(100, 0),
                 };
@@ -406,6 +451,118 @@ internal static class DubiousConfigModal
         }
 
         return row;
+    }
+
+    private static void ShowRestoreConfirmation(
+        FeatureConfig config,
+        System.Collections.Generic.List<(ConfigEntry entry, Control control)> entryControls)
+    {
+        var popup = new Control { Name = "RestoreConfirmPopup", MouseFilter = Control.MouseFilterEnum.Stop };
+        popup.SetAnchorsPreset(Control.LayoutPreset.FullRect);
+
+        // Dim backdrop
+        var backdrop = new ColorRect { Color = new Color(0f, 0f, 0f, 0.5f) };
+        backdrop.SetAnchorsPreset(Control.LayoutPreset.FullRect);
+        popup.AddChild(backdrop);
+
+        var panel = new PanelContainer();
+        panel.AnchorLeft = 0.375f; panel.AnchorRight = 0.625f;
+        panel.AnchorTop = 0.425f; panel.AnchorBottom = 0.575f;
+        var panelStyle = new StyleBoxFlat
+        {
+            BgColor = new Color(0.12f, 0.12f, 0.18f, 1f),
+            CornerRadiusTopLeft = 6, CornerRadiusTopRight = 6,
+            CornerRadiusBottomLeft = 6, CornerRadiusBottomRight = 6,
+            BorderColor = AccentColor,
+            BorderWidthTop = 1, BorderWidthBottom = 1,
+            BorderWidthLeft = 1, BorderWidthRight = 1,
+        };
+        panel.AddThemeStyleboxOverride("panel", panelStyle);
+        popup.AddChild(panel);
+
+        var vbox = new VBoxContainer();
+        vbox.AddThemeConstantOverride("separation", 16);
+        vbox.Alignment = BoxContainer.AlignmentMode.Center;
+        var margin = new MarginContainer();
+        margin.AddThemeConstantOverride("margin_left", 24);
+        margin.AddThemeConstantOverride("margin_right", 24);
+        margin.AddThemeConstantOverride("margin_top", 20);
+        margin.AddThemeConstantOverride("margin_bottom", 20);
+        margin.AddChild(vbox);
+        panel.AddChild(margin);
+
+        var msg = new Label
+        {
+            Text = $"Restore all {config.Name} settings to their default values?",
+            HorizontalAlignment = HorizontalAlignment.Center,
+            AutowrapMode = TextServer.AutowrapMode.WordSmart,
+        };
+        msg.AddThemeFontSizeOverride("font_size", 15);
+        vbox.AddChild(msg);
+
+        var btnRow = new HBoxContainer
+        {
+            SizeFlagsHorizontal = Control.SizeFlags.ShrinkCenter,
+        };
+        btnRow.AddThemeConstantOverride("separation", 16);
+
+        var cancelBtn = new Button
+        {
+            Text = "Cancel",
+            CustomMinimumSize = new Vector2(120, 34),
+        };
+        cancelBtn.AddThemeFontSizeOverride("font_size", 14);
+        cancelBtn.Pressed += () => popup.QueueFree();
+        btnRow.AddChild(cancelBtn);
+
+        var confirmBtn = new Button
+        {
+            Text = "Restore",
+            CustomMinimumSize = new Vector2(120, 34),
+        };
+        confirmBtn.AddThemeFontSizeOverride("font_size", 14);
+        confirmBtn.Pressed += () =>
+        {
+            foreach (var entry in config.Entries)
+                entry.ResetToDefault();
+            config.Save();
+            foreach (var (entry, row) in entryControls)
+                UpdateEntryControl(entry, row);
+            popup.QueueFree();
+        };
+        btnRow.AddChild(confirmBtn);
+
+        vbox.AddChild(btnRow);
+
+        // Add to the config modal's root so it overlays the content.
+        NModalContainer.Instance?.GetChild(NModalContainer.Instance.GetChildCount() - 1)?.AddChild(popup);
+    }
+
+    private static void UpdateEntryControl(ConfigEntry entry, Control row)
+    {
+        if (row is not HBoxContainer hbox) return;
+        // The input control is the last child of the row HBoxContainer.
+        var last = hbox.GetChild(hbox.GetChildCount() - 1);
+        switch (entry.Type)
+        {
+            case ConfigEntryType.Bool when last is CheckBox cb:
+                cb.SetPressedNoSignal((bool)entry.Value);
+                break;
+            case ConfigEntryType.Int when last is SpinBox spinI:
+                spinI.Value = (int)entry.Value;
+                break;
+            case ConfigEntryType.Float when last is SpinBox spinF:
+                spinF.Value = (float)entry.Value;
+                break;
+            case ConfigEntryType.Color when last is ColorPickerButton picker:
+                picker.Color = (Color)entry.Value;
+                break;
+            case ConfigEntryType.Enum when last is OptionButton opt:
+                if (entry.EnumOptions != null)
+                    for (int i = 0; i < entry.EnumOptions.Length; i++)
+                        if (entry.EnumOptions[i] == (string)entry.Value) { opt.Selected = i; break; }
+                break;
+        }
     }
 
     private static Button MakeTabButton(string text)

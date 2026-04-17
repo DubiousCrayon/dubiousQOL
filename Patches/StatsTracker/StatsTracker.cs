@@ -65,9 +65,7 @@ public static class PatchStatsTracker
 
 internal sealed partial class StatsTrackerOverlay : Control
 {
-    private const float DefaultW = 340f;
     private const float DefaultRightMargin = 2f;
-    private const float DefaultTopMargin = 85f;
     private const float MinW = 250f;
 
     // Fixed chrome (title+tabs+metric+agg+sep + vbox separations + bottom pad).
@@ -140,7 +138,7 @@ internal sealed partial class StatsTrackerOverlay : Control
     public StatsTrackerOverlay()
     {
         Name = "DubiousStatsTracker";
-        Size = new Vector2(DefaultW, CurrentHeaderHeight + RowStrideH); // placeholder; Refresh() will size to content
+        Size = new Vector2(StatsTrackerConfig.Instance.DefaultWidth, CurrentHeaderHeight + RowStrideH);
         MouseFilter = MouseFilterEnum.Ignore;
         BuildUi();
         Refresh();
@@ -153,7 +151,7 @@ internal sealed partial class StatsTrackerOverlay : Control
         // banner. Uses viewport size at mount time; the user can then drag
         // freely and resize from the bottom-right handle.
         var vp = GetViewport()?.GetVisibleRect().Size ?? new Vector2(1920, 1080);
-        Position = new Vector2(vp.X - Size.X - DefaultRightMargin, DefaultTopMargin);
+        Position = new Vector2(vp.X - Size.X - DefaultRightMargin, StatsTrackerConfig.Instance.DefaultTopMargin);
     }
 
     public override void _EnterTree()

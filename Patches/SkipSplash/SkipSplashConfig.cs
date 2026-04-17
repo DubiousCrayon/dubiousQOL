@@ -10,6 +10,7 @@ internal class SkipSplashConfig : FeatureConfig
     public override string Name => "Skip Splash Screen";
     public override string Description => "Skips the MegaCrit intro video on startup.";
     public override bool EnabledByDefault => true;
+    public override bool RequiresRestart => true;
 
     protected override void DefineEntries(EntryBuilder b) { }
 }
