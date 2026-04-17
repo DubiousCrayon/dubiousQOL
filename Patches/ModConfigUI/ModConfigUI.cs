@@ -92,10 +92,8 @@ internal static class DubiousConfigModal
         root.SetAnchorsPreset(Control.LayoutPreset.FullRect);
 
         var frame = new PanelContainer { Name = "Frame" };
-        frame.AnchorLeft = 0.5f; frame.AnchorRight = 0.5f;
-        frame.AnchorTop = 0.5f; frame.AnchorBottom = 0.5f;
-        frame.OffsetLeft = -320; frame.OffsetRight = 320;
-        frame.OffsetTop = -280; frame.OffsetBottom = 280;
+        frame.AnchorLeft = 0.1f; frame.AnchorRight = 0.9f;
+        frame.AnchorTop = 0.08f; frame.AnchorBottom = 0.92f;
         root.AddChild(frame);
 
         var pad = new MarginContainer();
@@ -117,9 +115,10 @@ internal static class DubiousConfigModal
         title.AddThemeFontSizeOverride("font_size", 22);
         outerVbox.AddChild(title);
 
-        var tabBar = new HBoxContainer { MouseFilter = Control.MouseFilterEnum.Ignore };
-        tabBar.AddThemeConstantOverride("separation", 2);
-        outerVbox.AddChild(tabBar);
+        // Tab rows: 5 tabs per row so names aren't truncated
+        var tabContainer = new VBoxContainer { MouseFilter = Control.MouseFilterEnum.Ignore };
+        tabContainer.AddThemeConstantOverride("separation", 2);
+        outerVbox.AddChild(tabContainer);
 
         var contentArea = new PanelContainer
         {
@@ -127,7 +126,7 @@ internal static class DubiousConfigModal
         };
         var contentStyle = new StyleBoxFlat
         {
-            BgColor = new Color(0.08f, 0.08f, 0.12f, 0.5f),
+            BgColor = new Color(0.10f, 0.10f, 0.15f, 1.0f),
             CornerRadiusBottomLeft = 4, CornerRadiusBottomRight = 4,
         };
         contentArea.AddThemeStyleboxOverride("panel", contentStyle);
@@ -143,13 +142,25 @@ internal static class DubiousConfigModal
         contentArea.AddChild(homePage);
         int activeTab = 0;
 
-        var tabButtons = new Button[features.Count + 1];
-        tabButtons[0] = MakeTabButton("Home");
-        tabBar.AddChild(tabButtons[0]);
+        // Build tab buttons in rows of 5
+        const int tabsPerRow = 5;
+        var allTabNames = new string[features.Count + 1];
+        allTabNames[0] = "Home";
         for (int i = 0; i < features.Count; i++)
+            allTabNames[i + 1] = features[i].Name;
+
+        var tabButtons = new Button[allTabNames.Length];
+        HBoxContainer? currentRow = null;
+        for (int i = 0; i < allTabNames.Length; i++)
         {
-            tabButtons[i + 1] = MakeTabButton(features[i].Name);
-            tabBar.AddChild(tabButtons[i + 1]);
+            if (i % tabsPerRow == 0)
+            {
+                currentRow = new HBoxContainer { MouseFilter = Control.MouseFilterEnum.Ignore };
+                currentRow.AddThemeConstantOverride("separation", 2);
+                tabContainer.AddChild(currentRow);
+            }
+            tabButtons[i] = MakeTabButton(allTabNames[i]);
+            currentRow!.AddChild(tabButtons[i]);
         }
 
         for (int i = 0; i < tabButtons.Length; i++)
@@ -158,7 +169,7 @@ internal static class DubiousConfigModal
             tabButtons[i].Pressed += () =>
             {
                 if (activeTab == idx) return;
-                contentArea.GetChild(0)?.QueueFree();
+                contentArea.RemoveChild(pages[activeTab]);
                 contentArea.AddChild(pages[idx]);
                 activeTab = idx;
                 UpdateTabHighlights(tabButtons, activeTab);
@@ -185,7 +196,10 @@ internal static class DubiousConfigModal
         var vbox = new VBoxContainer();
         vbox.AddThemeConstantOverride("separation", 8);
 
-        var pad = new MarginContainer();
+        var pad = new MarginContainer
+        {
+            SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
+        };
         pad.AddThemeConstantOverride("margin_left", 12);
         pad.AddThemeConstantOverride("margin_right", 12);
         pad.AddThemeConstantOverride("margin_top", 12);
@@ -195,7 +209,7 @@ internal static class DubiousConfigModal
 
         var hint = new Label
         {
-            Text = "Toggle features on or off. Click a feature tab for detailed settings.",
+            Text = "Toggle features on or off. Click a feature tab for detailed settings.\n\u26A0toggling requires a restart.",
             HorizontalAlignment = HorizontalAlignment.Center,
             AutowrapMode = TextServer.AutowrapMode.WordSmart,
         };
@@ -210,7 +224,7 @@ internal static class DubiousConfigModal
 
             var nameVbox = new VBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
 
-            var nameLabel = new Label { Text = config.Name + (config.RequiresRestart ? " (***)" : "") };
+            var nameLabel = new Label { Text = config.Name + (config.RequiresRestart ? "  \u26A0" : "") };
             nameLabel.AddThemeFontSizeOverride("font_size", 16);
             nameVbox.AddChild(nameLabel);
 
@@ -244,7 +258,10 @@ internal static class DubiousConfigModal
             SizeFlagsVertical = Control.SizeFlags.ExpandFill,
         };
 
-        var pad = new MarginContainer();
+        var pad = new MarginContainer
+        {
+            SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
+        };
         pad.AddThemeConstantOverride("margin_left", 12);
         pad.AddThemeConstantOverride("margin_right", 12);
         pad.AddThemeConstantOverride("margin_top", 12);
@@ -397,8 +414,8 @@ internal static class DubiousConfigModal
         {
             Text = text,
             CustomMinimumSize = new Vector2(0, 28),
+            SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
             FocusMode = Control.FocusModeEnum.None,
-            ClipText = true,
         };
         btn.AddThemeFontSizeOverride("font_size", 12);
         return btn;
