@@ -1,14 +1,23 @@
 using System;
+using System.Collections.Generic;
 using dubiousQOL.Config;
 using Godot;
 using HarmonyLib;
+using MegaCrit.Sts2.Core.Assets;
+using MegaCrit.Sts2.Core.Helpers;
 using MegaCrit.Sts2.Core.Nodes.CommonUi;
 using MegaCrit.Sts2.Core.Nodes.GodotExtensions;
+using MegaCrit.Sts2.Core.Nodes.Multiplayer;
 using MegaCrit.Sts2.Core.Nodes.Screens.ScreenContext;
 using MegaCrit.Sts2.Core.Nodes.Screens.Settings;
 using MegaCrit.Sts2.Core.Runs;
+using MegaCrit.Sts2.addons.mega_text;
 
 namespace dubiousQOL.Patches;
+
+// ─────────────────────────────────────────────────────────────
+//  Inject "Open Config" row into the game's General settings
+// ─────────────────────────────────────────────────────────────
 
 [HarmonyPatch(typeof(NSettingsScreen), "_Ready")]
 public static class PatchModConfigSettingsRow
@@ -63,6 +72,10 @@ public static class PatchModConfigSettingsRow
     }
 }
 
+// ─────────────────────────────────────────────────────────────
+//  Root panel — handles Escape key for popup/modal dismissal
+// ─────────────────────────────────────────────────────────────
+
 internal partial class DubiousConfigPanel : Control, IScreenContext
 {
     private Control? _firstFocusable;
@@ -82,12 +95,35 @@ internal partial class DubiousConfigPanel : Control, IScreenContext
     }
 }
 
+// ─────────────────────────────────────────────────────────────
+//  Modal builder — clones game settings screen components
+// ─────────────────────────────────────────────────────────────
+
 internal static class DubiousConfigModal
 {
-    private static readonly Color AccentColor = new(0.9f, 0.85f, 0.6f);
-    private static readonly Color DimText = new(0.75f, 0.75f, 0.75f);
-    private static readonly Color TabActiveBg = new(0.22f, 0.22f, 0.30f, 0.9f);
-    private static readonly Color TabInactiveBg = new(0.12f, 0.12f, 0.18f, 0.6f);
+    private static readonly Color DividerColor = new(0.909804f, 0.862745f, 0.745098f, 0.25098f);
+    private static readonly Color DimTextColor = new(0.65f, 0.62f, 0.55f);
+    private static readonly Color AccentColor = new(0.91f, 0.86f, 0.65f);
+
+    // Shortened names for tab buttons so text fits within the tab texture.
+    private static string ShortenTabName(string fullName) => fullName switch
+    {
+        "Act Name Display" => "Act Name",
+        "Incoming Damage Display" => "DMG Display",
+        "Rarity Display" => "Rarity Display",
+        "Skip Splash Screen" => "Skip Splash",
+        "Unified Save Path" => "Save Path",
+        "Win Streak Display" => "Win Streak",
+        _ => fullName,
+    };
+
+    // Source nodes from the live settings screen, cached per Open() call.
+    // Typed as Node because Godot's C# interop doesn't resolve game script
+    // types (NSettingsTab, NTickbox) when accessed via GetChildren/GetNode.
+    private static Node? _sourceTab;
+    private static Node? _sourceTickbox;
+    private static Node? _sourceLabel;
+    private static Node? _sourceButton;
 
     public static void Open(NSettingsScreen settingsScreen)
     {
@@ -95,229 +131,257 @@ internal static class DubiousConfigModal
         {
             var modal = NModalContainer.Instance;
             if (modal == null) return;
-            modal.Add(BuildPanel());
+
+            // Cache source nodes from the live settings screen for cloning
+            _sourceTab = settingsScreen.GetNodeOrNull("SettingsTabManager/General");
+            _sourceTickbox = settingsScreen.FindChild("SettingsTickbox", recursive: true, owned: false);
+            _sourceLabel = settingsScreen.GetNodeOrNull(
+                "ScrollContainer/Mask/Clipper/GeneralSettings/VBoxContainer/FastMode/Label");
+
+            if (_sourceTab == null) MainFile.Logger.Warn("ModConfigUI: source tab not found");
+            if (_sourceTickbox == null) MainFile.Logger.Warn("ModConfigUI: source tickbox not found");
+            if (_sourceLabel == null) MainFile.Logger.Warn("ModConfigUI: source label not found");
+
+            _sourceButton = settingsScreen.GetNodeOrNull(
+                "ScrollContainer/Mask/Clipper/GeneralSettings/VBoxContainer/ResetGameplay/ResetGameplayButton");
+            if (_sourceButton == null) MainFile.Logger.Warn("ModConfigUI: source button not found");
+
+            // Hide the settings screen so it doesn't show through
+            settingsScreen.Visible = false;
+
+            var panel = BuildPanel();
+
+            // Restore settings screen visibility when our panel leaves the tree
+            var screenRef = settingsScreen;
+            panel.TreeExiting += () =>
+            {
+                if (GodotObject.IsInstanceValid(screenRef))
+                    screenRef.Visible = true;
+            };
+
+            modal.Add(panel, showBackstop: false);
         }
         catch (Exception e)
         {
+            settingsScreen.Visible = true;
             MainFile.Logger.Warn($"ModConfigUI open: {e.Message}\n{e.StackTrace}");
+        }
+        finally
+        {
+            _sourceTab = null;
+            _sourceTickbox = null;
+            _sourceLabel = null;
+            _sourceButton = null;
         }
     }
 
     private static Control BuildPanel()
     {
-        var root = new DubiousConfigPanel { Name = "DubiousConfigPanelRoot", MouseFilter = Control.MouseFilterEnum.Stop };
+        var root = new DubiousConfigPanel
+        {
+            Name = "DubiousConfigPanelRoot",
+            MouseFilter = Control.MouseFilterEnum.Stop,
+        };
         root.SetAnchorsPreset(Control.LayoutPreset.FullRect);
 
-        var frame = new PanelContainer { Name = "Frame" };
-        frame.AnchorLeft = 0.1f; frame.AnchorRight = 0.9f;
-        frame.AnchorTop = 0.08f; frame.AnchorBottom = 0.92f;
-        root.AddChild(frame);
-
-        var pad = new MarginContainer();
-        pad.AddThemeConstantOverride("margin_left", 24);
-        pad.AddThemeConstantOverride("margin_right", 24);
-        pad.AddThemeConstantOverride("margin_top", 20);
-        pad.AddThemeConstantOverride("margin_bottom", 20);
-        frame.AddChild(pad);
-
-        var outerVbox = new VBoxContainer();
-        outerVbox.AddThemeConstantOverride("separation", 10);
-        pad.AddChild(outerVbox);
-
-        var title = new Label
-        {
-            Text = "dubiousQOL Configuration",
-            HorizontalAlignment = HorizontalAlignment.Center,
-        };
-        title.AddThemeFontSizeOverride("font_size", 22);
-        outerVbox.AddChild(title);
-
-        // Tab rows: 5 tabs per row so names aren't truncated
-        var tabContainer = new VBoxContainer { MouseFilter = Control.MouseFilterEnum.Ignore };
-        tabContainer.AddThemeConstantOverride("separation", 2);
-        outerVbox.AddChild(tabContainer);
-
-        var contentArea = new PanelContainer
-        {
-            SizeFlagsVertical = Control.SizeFlags.ExpandFill,
-        };
-        var contentStyle = new StyleBoxFlat
-        {
-            BgColor = new Color(0.10f, 0.10f, 0.15f, 1.0f),
-            CornerRadiusBottomLeft = 4, CornerRadiusBottomRight = 4,
-        };
-        contentArea.AddThemeStyleboxOverride("panel", contentStyle);
-        outerVbox.AddChild(contentArea);
-
-        var homePage = BuildHomePage();
         var features = ConfigRegistry.All;
-        var pages = new Control[features.Count + 1];
-        pages[0] = homePage;
+
+        // ── Tab bar ──────────────────────────────────────────
+        var tabNames = new string[features.Count + 1];
+        tabNames[0] = "Main";
         for (int i = 0; i < features.Count; i++)
-            pages[i + 1] = BuildFeaturePage(features[i]);
+            tabNames[i + 1] = ShortenTabName(features[i].Name);
 
-        contentArea.AddChild(homePage);
-        int activeTab = 0;
+        var tabBarContainer = new VBoxContainer { Name = "TabBarContainer" };
+        tabBarContainer.AddThemeConstantOverride("separation", 8);
+        tabBarContainer.AnchorLeft = 0f; tabBarContainer.AnchorRight = 1f;
+        tabBarContainer.AnchorTop = 0f; tabBarContainer.AnchorBottom = 0f;
+        tabBarContainer.OffsetLeft = 200; tabBarContainer.OffsetRight = -200;
+        tabBarContainer.OffsetTop = 60; tabBarContainer.OffsetBottom = 256;
+        root.AddChild(tabBarContainer);
 
-        // Build tab buttons in rows of 5
         const int tabsPerRow = 5;
-        var allTabNames = new string[features.Count + 1];
-        allTabNames[0] = "Home";
-        for (int i = 0; i < features.Count; i++)
-            allTabNames[i + 1] = features[i].Name;
-
-        var tabButtons = new Button[allTabNames.Length];
+        var allTabs = new Node?[tabNames.Length];
         HBoxContainer? currentRow = null;
-        for (int i = 0; i < allTabNames.Length; i++)
+
+        for (int i = 0; i < tabNames.Length && _sourceTab != null; i++)
         {
             if (i % tabsPerRow == 0)
             {
-                currentRow = new HBoxContainer { MouseFilter = Control.MouseFilterEnum.Ignore };
-                currentRow.AddThemeConstantOverride("separation", 2);
-                tabContainer.AddChild(currentRow);
+                currentRow = new HBoxContainer();
+                currentRow.AddThemeConstantOverride("separation", 12);
+                currentRow.Alignment = BoxContainer.AlignmentMode.Center;
+                tabBarContainer.AddChild(currentRow);
             }
-            tabButtons[i] = MakeTabButton(allTabNames[i]);
-            currentRow!.AddChild(tabButtons[i]);
+
+            // Duplicate(15) preserves scripts+groups+signals structure.
+            // ModConfig (BaseLib) uses the same approach.
+            var tab = _sourceTab.Duplicate(15);
+            // Each tab needs its own shader material for independent HSV hover
+            var tabImg = tab.GetNodeOrNull<TextureRect>("TabImage");
+            if (tabImg?.Material is ShaderMaterial sm)
+                tabImg.Material = (Material)sm.Duplicate();
+
+            tab.Name = $"Tab_{i}";
+            currentRow!.AddChild(tab);
+            tab.CallDeferred("SetLabel", tabNames[i]);
+            allTabs[i] = tab;
         }
 
-        for (int i = 0; i < tabButtons.Length; i++)
+        // Set initial tab selection state. Can't use Select/Deselect via
+        // CallDeferred — clones start with _isSelected=false so Deselect's
+        // guard blocks it. Instead, wire the Ready signal (fires after _Ready
+        // populates _outline/_label) and directly set visual state.
+        for (int i = 0; i < allTabs.Length; i++)
         {
-            int idx = i;
-            tabButtons[i].Pressed += () =>
+            if (allTabs[i] == null) continue;
+            var t = allTabs[i]!;
+            bool selected = i == 0;
+            t.Ready += () =>
             {
-                if (activeTab == idx) return;
-                contentArea.RemoveChild(pages[activeTab]);
-                contentArea.AddChild(pages[idx]);
-                activeTab = idx;
-                UpdateTabHighlights(tabButtons, activeTab);
+                var outline = t.GetNodeOrNull<TextureRect>("Outline");
+                if (outline != null) outline.Visible = selected;
+                var lbl = t.GetNodeOrNull<Control>("Label");
+                if (lbl != null) lbl.Modulate = selected
+                    ? new Color("FFF6E2")        // StsColors.cream
+                    : new Color("FFF6E280");     // StsColors.halfTransparentCream
+                t.Set("_isSelected", selected);  // sync internal state for future Select/Deselect
             };
         }
-        UpdateTabHighlights(tabButtons, 0);
 
-        var close = new Button { Text = "Close", CustomMinimumSize = new Vector2(140, 36) };
-        close.SizeFlagsHorizontal = Control.SizeFlags.ShrinkCenter;
-        close.Pressed += () => NModalContainer.Instance?.Clear();
-        outerVbox.AddChild(close);
+        // ── Content area ────────────────────────────────────
+        var scroll = new ScrollContainer
+        {
+            Name = "ConfigScroll",
+            HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled,
+        };
+        scroll.AnchorLeft = 0f; scroll.AnchorRight = 1f;
+        scroll.AnchorTop = 0f; scroll.AnchorBottom = 1f;
+        scroll.OffsetLeft = 340; scroll.OffsetRight = -400;
+        scroll.OffsetTop = 260; scroll.OffsetBottom = -40;
+        root.AddChild(scroll);
+
+        // Build all pages
+        var pages = new Control[features.Count + 1];
+        pages[0] = BuildHomePage();
+        for (int i = 0; i < features.Count; i++)
+            pages[i + 1] = BuildFeaturePage(features[i]);
+
+        scroll.AddChild(pages[0]);
+        int activeTab = 0;
+
+        // ── Tab switching ───────────────────────────────────
+        for (int i = 0; i < allTabs.Length; i++)
+        {
+            if (allTabs[i] == null) continue;
+            int idx = i;
+            var capturedTabs = allTabs;
+            allTabs[i].Connect("Released", Callable.From<Variant>(_ =>
+            {
+                if (activeTab == idx) return;
+                scroll.RemoveChild(pages[activeTab]);
+                scroll.AddChild(pages[idx]);
+                scroll.ScrollVertical = 0;
+                capturedTabs[activeTab]?.Call("Deselect");
+                capturedTabs[idx]?.Call("Select");
+                activeTab = idx;
+            }));
+        }
+
+        // ── Back button ─────────────────────────────────────
+        try
+        {
+            var backBtn = PreloadManager.Cache.GetScene(
+                SceneHelper.GetScenePath("ui/back_button")
+            ).Instantiate<NBackButton>(PackedScene.GenEditState.Disabled);
+            backBtn.Name = "DubiousConfigBackButton";
+            backBtn.Released += _ => NModalContainer.Instance?.Clear();
+            root.AddChild(backBtn);
+            backBtn.CallDeferred(NClickableControl.MethodName.Enable);
+        }
+        catch (Exception e)
+        {
+            MainFile.Logger.Warn($"ModConfigUI back button: {e.Message}");
+        }
 
         return root;
     }
 
+    // ─────────────────────────────────────────────────────────
+    //  Home page — feature toggle list
+    // ─────────────────────────────────────────────────────────
+
     private static Control BuildHomePage()
     {
-        var scroll = new ScrollContainer
-        {
-            HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled,
-            SizeFlagsVertical = Control.SizeFlags.ExpandFill,
-        };
-
         var vbox = new VBoxContainer();
-        vbox.AddThemeConstantOverride("separation", 8);
+        vbox.AddThemeConstantOverride("separation", 0);
+        vbox.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
 
-        var pad = new MarginContainer
-        {
-            SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
-        };
-        pad.AddThemeConstantOverride("margin_left", 12);
-        pad.AddThemeConstantOverride("margin_right", 12);
-        pad.AddThemeConstantOverride("margin_top", 12);
-        pad.AddThemeConstantOverride("margin_bottom", 12);
-        pad.AddChild(vbox);
-        scroll.AddChild(pad);
-
-        var hint = new Label
-        {
-            Text = "Toggle features on or off. Click a feature tab for detailed settings.\n\u26A0toggling requires a restart.",
-            HorizontalAlignment = HorizontalAlignment.Center,
-            AutowrapMode = TextServer.AutowrapMode.WordSmart,
-        };
-        hint.AddThemeFontSizeOverride("font_size", 14);
-        hint.AddThemeColorOverride("font_color", DimText);
+        var hint = CreateInfoLabel(
+            "Toggle features on or off. Click a feature tab for detailed settings.\n" +
+            "Features marked with \u26A0 require a game restart to take effect.", 22);
+        hint.HorizontalAlignment = HorizontalAlignment.Center;
+        hint.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+        hint.CustomMinimumSize = new Vector2(0, 72);
+        hint.VerticalAlignment = VerticalAlignment.Center;
+        hint.AddThemeColorOverride("font_color", DimTextColor);
         vbox.AddChild(hint);
+
+        vbox.AddChild(CreateDivider());
 
         foreach (var config in ConfigRegistry.All)
         {
-            var row = new HBoxContainer();
-            row.AddThemeConstantOverride("separation", 12);
+            var row = CreateSettingsRow(
+                config.Name + (config.RequiresRestart ? "  \u26A0" : ""));
 
-            var nameVbox = new VBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
-
-            var nameLabel = new Label { Text = config.Name + (config.RequiresRestart ? "  \u26A0" : "") };
-            nameLabel.AddThemeFontSizeOverride("font_size", 16);
-            nameVbox.AddChild(nameLabel);
-
-            var descLabel = new Label
+            row.AddChild(CreateGameTickbox(config.Enabled, ticked =>
             {
-                Text = config.Description,
-                AutowrapMode = TextServer.AutowrapMode.WordSmart,
-            };
-            descLabel.AddThemeFontSizeOverride("font_size", 12);
-            descLabel.AddThemeColorOverride("font_color", DimText);
-            nameVbox.AddChild(descLabel);
-
-            row.AddChild(nameVbox);
-
-            var cb = new CheckBox { ButtonPressed = config.Enabled };
-            var capturedConfig = config;
-            cb.Toggled += v => { capturedConfig.Enabled = v; capturedConfig.Save(); };
-            row.AddChild(cb);
+                config.Enabled = ticked;
+                config.Save();
+            }));
 
             vbox.AddChild(row);
+            vbox.AddChild(CreateDivider());
         }
 
-        return scroll;
+        return vbox;
     }
+
+    // ─────────────────────────────────────────────────────────
+    //  Feature detail page
+    // ─────────────────────────────────────────────────────────
 
     private static Control BuildFeaturePage(FeatureConfig config)
     {
-        var scroll = new ScrollContainer
-        {
-            HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled,
-            SizeFlagsVertical = Control.SizeFlags.ExpandFill,
-        };
-
-        var pad = new MarginContainer
-        {
-            SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
-        };
-        pad.AddThemeConstantOverride("margin_left", 12);
-        pad.AddThemeConstantOverride("margin_right", 12);
-        pad.AddThemeConstantOverride("margin_top", 12);
-        pad.AddThemeConstantOverride("margin_bottom", 12);
+        // Wrap in a MarginContainer so content stays inset from scroll edges
+        var margin = new MarginContainer();
+        margin.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
+        margin.AddThemeConstantOverride("margin_right", 48);
 
         var vbox = new VBoxContainer();
-        vbox.AddThemeConstantOverride("separation", 10);
+        vbox.AddThemeConstantOverride("separation", 0);
+        vbox.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
+        margin.AddChild(vbox);
 
-        var header = new Label
-        {
-            Text = config.Name,
-            HorizontalAlignment = HorizontalAlignment.Center,
-        };
-        header.AddThemeFontSizeOverride("font_size", 18);
-        header.AddThemeColorOverride("font_color", AccentColor);
-        vbox.AddChild(header);
-
-        var desc = new Label
-        {
-            Text = config.Description,
-            HorizontalAlignment = HorizontalAlignment.Center,
-            AutowrapMode = TextServer.AutowrapMode.WordSmart,
-        };
-        desc.AddThemeFontSizeOverride("font_size", 13);
-        desc.AddThemeColorOverride("font_color", DimText);
+        var desc = CreateInfoLabel(config.Description, 24);
+        desc.HorizontalAlignment = HorizontalAlignment.Center;
+        desc.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+        desc.AddThemeColorOverride("font_color", DimTextColor);
+        desc.CustomMinimumSize = new Vector2(0, 56);
+        desc.VerticalAlignment = VerticalAlignment.Center;
         vbox.AddChild(desc);
 
-        // Collect entry controls so Restore to Defaults can update them.
-        var entryControls = new System.Collections.Generic.List<(ConfigEntry entry, Control control)>();
+        vbox.AddChild(CreateDivider());
+
+        var entryControls = new List<(ConfigEntry entry, Control control)>();
 
         if (config.Entries.Count == 0)
         {
-            var empty = new Label
-            {
-                Text = "No additional settings for this feature.",
-                HorizontalAlignment = HorizontalAlignment.Center,
-            };
-            empty.AddThemeFontSizeOverride("font_size", 13);
-            empty.AddThemeColorOverride("font_color", new Color(0.5f, 0.5f, 0.5f));
+            var empty = CreateInfoLabel("No additional settings for this feature.", 26);
+            empty.HorizontalAlignment = HorizontalAlignment.Center;
+            empty.CustomMinimumSize = new Vector2(0, 80);
+            empty.VerticalAlignment = VerticalAlignment.Center;
+            empty.AddThemeColorOverride("font_color", DimTextColor);
             vbox.AddChild(empty);
         }
         else
@@ -326,94 +390,97 @@ internal static class DubiousConfigModal
             {
                 var row = BuildEntryRow(config, entry);
                 vbox.AddChild(row);
+                vbox.AddChild(CreateDivider());
                 entryControls.Add((entry, row));
             }
         }
 
-        var restoreBtn = new Button
+        // Restore to Defaults — clone the game's hexagonal styled button
+        var restoreRow = new MarginContainer();
+        restoreRow.AddThemeConstantOverride("margin_left", 12);
+        restoreRow.AddThemeConstantOverride("margin_right", 12);
+        restoreRow.AddThemeConstantOverride("margin_top", 20);
+        restoreRow.CustomMinimumSize = new Vector2(0, 80);
+
+        Control restoreBtn;
+        if (_sourceButton != null)
         {
-            Text = "Restore to Defaults",
-            CustomMinimumSize = new Vector2(180, 32),
-            SizeFlagsHorizontal = Control.SizeFlags.ShrinkCenter,
-        };
-        restoreBtn.AddThemeFontSizeOverride("font_size", 13);
+            // Duplicate(14) = scripts + groups + instantiation, skip signals
+            // to avoid inheriting the source button's Released handler.
+            var clone = (Control)_sourceButton.Duplicate(14);
+            clone.Name = "RestoreDefaultsButton";
+            clone.SizeFlagsHorizontal = Control.SizeFlags.ShrinkCenter;
+            // Set label text after _Ready populates MegaLabel internals.
+            // Ready signal fires after _Ready, so SetTextAutoSize can run.
+            // Use "Restore Defaults" (shorter) so text fits the hex texture.
+            clone.Ready += () =>
+            {
+                var lbl = clone.FindChild("Label", recursive: true, owned: false);
+                lbl?.Call("SetTextAutoSize", "Restore Defaults");
+            };
+            restoreBtn = clone;
+        }
+        else
+        {
+            restoreBtn = new Button
+            {
+                Text = "Restore to Defaults",
+                CustomMinimumSize = new Vector2(240, 48),
+                SizeFlagsHorizontal = Control.SizeFlags.ShrinkCenter,
+            };
+            ApplyGameFont((Button)restoreBtn, 24);
+        }
+
         if (config.Entries.Count == 0)
         {
-            // TODO: enable when config settings are added for this feature
-            restoreBtn.Disabled = true;
+            if (restoreBtn is Button plainBtn) plainBtn.Disabled = true;
+            else restoreBtn.CallDeferred(NClickableControl.MethodName.Disable);
         }
         else
         {
             var capturedControls = entryControls;
             var capturedConfig = config;
-            restoreBtn.Pressed += () => ShowRestoreConfirmation(capturedConfig, capturedControls);
+            if (_sourceButton != null)
+            {
+                restoreBtn.CallDeferred(NClickableControl.MethodName.Enable);
+                restoreBtn.Connect(NClickableControl.SignalName.Released,
+                    Callable.From<NButton>(_ => ShowRestoreConfirmation(capturedConfig, capturedControls)));
+            }
+            else
+            {
+                ((Button)restoreBtn).Pressed += () => ShowRestoreConfirmation(capturedConfig, capturedControls);
+            }
         }
-        vbox.AddChild(restoreBtn);
 
-        pad.AddChild(vbox);
-        scroll.AddChild(pad);
-        return scroll;
+        restoreRow.AddChild(restoreBtn);
+        vbox.AddChild(restoreRow);
+
+        return margin;
     }
+
+    // ─────────────────────────────────────────────────────────
+    //  Entry row (per config entry)
+    // ─────────────────────────────────────────────────────────
 
     private static Control BuildEntryRow(FeatureConfig config, ConfigEntry entry)
     {
-        var row = new HBoxContainer();
-        row.AddThemeConstantOverride("separation", 12);
-
-        var labelVbox = new VBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
-        var label = new Label { Text = entry.Label };
-        label.AddThemeFontSizeOverride("font_size", 14);
-        labelVbox.AddChild(label);
-
-        if (!string.IsNullOrEmpty(entry.Description))
-        {
-            var descLabel = new Label
-            {
-                Text = entry.Description,
-                AutowrapMode = TextServer.AutowrapMode.WordSmart,
-            };
-            descLabel.AddThemeFontSizeOverride("font_size", 11);
-            descLabel.AddThemeColorOverride("font_color", DimText);
-            labelVbox.AddChild(descLabel);
-        }
-        row.AddChild(labelVbox);
+        var row = CreateSettingsRow(entry.Label);
 
         switch (entry.Type)
         {
             case ConfigEntryType.Bool:
             {
-                var cb = new CheckBox { ButtonPressed = (bool)entry.Value };
-                cb.Toggled += v => { entry.Value = v; config.Save(); };
-                row.AddChild(cb);
+                row.AddChild(CreateGameTickbox((bool)entry.Value, ticked =>
+                {
+                    entry.Value = ticked;
+                    config.Save();
+                }));
                 break;
             }
             case ConfigEntryType.Int:
-            {
-                // Min/Max must be set before Value — Godot's Range clamps on assignment.
-                var spin = new SpinBox
-                {
-                    MinValue = entry.Min ?? 0,
-                    MaxValue = entry.Max ?? 9999,
-                    Value = (int)entry.Value,
-                    Step = 1,
-                    CustomMinimumSize = new Vector2(100, 0),
-                };
-                spin.ValueChanged += v => { entry.Value = (int)v; config.Save(); };
-                row.AddChild(spin);
-                break;
-            }
             case ConfigEntryType.Float:
             {
-                var spin = new SpinBox
-                {
-                    MinValue = entry.Min ?? 0f,
-                    MaxValue = entry.Max ?? 9999f,
-                    Value = (float)entry.Value,
-                    Step = 0.1,
-                    CustomMinimumSize = new Vector2(100, 0),
-                };
-                spin.ValueChanged += v => { entry.Value = (float)v; config.Save(); };
-                row.AddChild(spin);
+                row.AddChild(CreateGameSlider(config, entry));
                 break;
             }
             case ConfigEntryType.Color:
@@ -421,7 +488,8 @@ internal static class DubiousConfigModal
                 var picker = new ColorPickerButton
                 {
                     Color = (Color)entry.Value,
-                    CustomMinimumSize = new Vector2(60, 28),
+                    CustomMinimumSize = new Vector2(80, 48),
+                    SizeFlagsHorizontal = Control.SizeFlags.ShrinkEnd,
                 };
                 picker.ColorChanged += c => { entry.Value = c; config.Save(); };
                 row.AddChild(picker);
@@ -429,7 +497,11 @@ internal static class DubiousConfigModal
             }
             case ConfigEntryType.Enum:
             {
-                var optionBtn = new OptionButton { CustomMinimumSize = new Vector2(120, 0) };
+                var optionBtn = new OptionButton
+                {
+                    CustomMinimumSize = new Vector2(180, 48),
+                    SizeFlagsHorizontal = Control.SizeFlags.ShrinkEnd,
+                };
                 int selected = 0;
                 if (entry.EnumOptions != null)
                 {
@@ -453,107 +525,336 @@ internal static class DubiousConfigModal
         return row;
     }
 
+    // ─────────────────────────────────────────────────────────
+    //  Game-styled UI factory helpers
+    // ─────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Clones a RichTextLabel from the live settings screen for row labels.
+    /// This gives us the exact same MegaRichTextLabel with game fonts/theme.
+    /// </summary>
+    private static Control CloneSettingsLabel(string text)
+    {
+        if (_sourceLabel != null)
+        {
+            var clone = (Control)_sourceLabel.Duplicate(15);
+            if (clone is RichTextLabel rtl)
+                rtl.Text = text;
+            clone.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
+            clone.CustomMinimumSize = new Vector2(0, 64);
+            return clone;
+        }
+        // Fallback if source not available
+        var label = new Label
+        {
+            Text = text,
+            VerticalAlignment = VerticalAlignment.Center,
+            MouseFilter = Control.MouseFilterEnum.Ignore,
+        };
+        label.AddThemeFontSizeOverride("font_size", 28);
+        label.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
+        label.CustomMinimumSize = new Vector2(0, 64);
+        return label;
+    }
+
+    /// <summary>
+    /// MegaLabel for informational text (hints, descriptions) that doesn't
+    /// need to match settings rows exactly.
+    /// </summary>
+    private static MegaLabel CreateInfoLabel(string text, int fontSize)
+    {
+        try
+        {
+            var regular = PreloadManager.Cache.GetAsset<Font>("res://themes/kreon_regular_shared.tres");
+            var bold = PreloadManager.Cache.GetAsset<Font>("res://themes/kreon_bold_shared.tres");
+            var theme = PreloadManager.Cache.GetAsset<Theme>("res://themes/settings_screen_line_header.tres");
+
+            var label = new MegaLabel
+            {
+                Theme = theme,
+                AutoSizeEnabled = false,
+                MouseFilter = Control.MouseFilterEnum.Ignore,
+                FocusMode = Control.FocusModeEnum.None,
+                Text = text,
+            };
+            label.AddThemeFontOverride("normal_font", regular);
+            label.AddThemeFontOverride("bold_font", bold);
+            label.AddThemeFontSizeOverride("font_size", fontSize);
+            return label;
+        }
+        catch
+        {
+            var fallback = new MegaLabel
+            {
+                Text = text,
+                MouseFilter = Control.MouseFilterEnum.Ignore,
+            };
+            fallback.AddThemeFontSizeOverride("font_size", fontSize);
+            return fallback;
+        }
+    }
+
+    private static void ApplyGameFont(Control control, int fontSize)
+    {
+        try
+        {
+            var regular = PreloadManager.Cache.GetAsset<Font>("res://themes/kreon_regular_shared.tres");
+            control.AddThemeFontOverride("font", regular);
+        }
+        catch { /* font unavailable, use default */ }
+        control.AddThemeFontSizeOverride("font_size", fontSize);
+    }
+
+    private static ColorRect CreateDivider()
+    {
+        return new ColorRect
+        {
+            CustomMinimumSize = new Vector2(0, 2),
+            MouseFilter = Control.MouseFilterEnum.Ignore,
+            Color = DividerColor,
+        };
+    }
+
+    private static HBoxContainer CreateSettingsRow(string labelText)
+    {
+        var hbox = new HBoxContainer
+        {
+            CustomMinimumSize = new Vector2(0, 64),
+            MouseFilter = Control.MouseFilterEnum.Ignore,
+        };
+        hbox.AddThemeConstantOverride("separation", 12);
+        hbox.AddChild(CloneSettingsLabel(labelText));
+        return hbox;
+    }
+
+    /// <summary>
+    /// Clones a game-native NTickbox from the live settings screen.
+    /// Falls back to a plain CheckBox if the source isn't available.
+    /// </summary>
+    private static Control CreateGameTickbox(bool initialValue, Action<bool> onChanged)
+    {
+        if (_sourceTickbox != null)
+        {
+            var clone = (Control)_sourceTickbox.Duplicate(15);
+            clone.CustomMinimumSize = new Vector2(320, 64);
+            clone.SizeFlagsHorizontal = Control.SizeFlags.ShrinkEnd;
+
+            // IsTicked setter NREs before _Ready (children not resolved).
+            // Defer the set so it runs after the clone enters the scene tree.
+            if (!initialValue)
+                clone.CallDeferred("set", "IsTicked", false);
+
+            // Toggled signal fires after OnRelease toggles IsTicked and plays SFX.
+            clone.Connect("Toggled", Callable.From<Variant>(_ =>
+            {
+                bool ticked = (bool)clone.Get("IsTicked");
+                onChanged(ticked);
+            }));
+
+            return clone;
+        }
+
+        // Fallback: plain Godot CheckBox
+        var cb = new CheckBox
+        {
+            ButtonPressed = initialValue,
+            CustomMinimumSize = new Vector2(64, 64),
+            SizeFlagsHorizontal = Control.SizeFlags.ShrinkEnd,
+        };
+        cb.Toggled += v => onChanged(v);
+        return cb;
+    }
+
+    /// <summary>
+    /// Creates a slider + editable value input styled to match the game's
+    /// sound-settings volume sliders.
+    /// </summary>
+    private static Control CreateGameSlider(FeatureConfig config, ConfigEntry entry)
+    {
+        bool isInt = entry.Type == ConfigEntryType.Int;
+        double min = entry.Min ?? 0;
+        double max = entry.Max ?? 9999;
+        double val = isInt ? (int)entry.Value : (float)entry.Value;
+
+        var container = new HBoxContainer { Name = "SliderContainer" };
+        container.AddThemeConstantOverride("separation", 8);
+        container.SizeFlagsHorizontal = Control.SizeFlags.ShrinkEnd;
+        container.CustomMinimumSize = new Vector2(280, 64);
+        container.ClipContents = true;
+
+        var slider = new HSlider
+        {
+            Name = "ConfigSlider",
+            MinValue = min,
+            MaxValue = max,
+            Value = val,
+            Step = isInt ? 1 : 1,
+            CustomMinimumSize = new Vector2(180, 0),
+            SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
+            SizeFlagsVertical = Control.SizeFlags.ShrinkCenter,
+        };
+        container.AddChild(slider);
+
+        var input = new LineEdit
+        {
+            Name = "ConfigValue",
+            Text = isInt ? ((int)val).ToString() : ((float)val).ToString("F0"),
+            CustomMinimumSize = new Vector2(64, 40),
+            SizeFlagsHorizontal = Control.SizeFlags.ShrinkEnd,
+            SizeFlagsVertical = Control.SizeFlags.ShrinkCenter,
+            Alignment = HorizontalAlignment.Center,
+        };
+        ApplyGameFont(input, 24);
+        container.AddChild(input);
+
+        slider.ValueChanged += v =>
+        {
+            if (isInt)
+            {
+                entry.Value = (int)v;
+                input.Text = ((int)v).ToString();
+            }
+            else
+            {
+                entry.Value = (float)v;
+                input.Text = ((float)v).ToString("F0");
+            }
+            config.Save();
+        };
+
+        input.TextSubmitted += text =>
+        {
+            if (double.TryParse(text, out var v))
+            {
+                v = Mathf.Clamp(v, min, max);
+                slider.Value = v;
+            }
+            else
+            {
+                input.Text = isInt
+                    ? ((int)entry.Value).ToString()
+                    : ((float)entry.Value).ToString("F0");
+            }
+            input.ReleaseFocus();
+        };
+
+        return container;
+    }
+
+    // ─────────────────────────────────────────────────────────
+    //  Restore to Defaults confirmation — uses the game's
+    //  NGenericPopup for native look and feel
+    // ─────────────────────────────────────────────────────────
+
     private static void ShowRestoreConfirmation(
         FeatureConfig config,
-        System.Collections.Generic.List<(ConfigEntry entry, Control control)> entryControls)
+        List<(ConfigEntry entry, Control control)> entryControls)
     {
-        var popup = new Control { Name = "RestoreConfirmPopup", MouseFilter = Control.MouseFilterEnum.Stop };
-        popup.SetAnchorsPreset(Control.LayoutPreset.FullRect);
+        var modal = NModalContainer.Instance;
+        var panelRoot = modal?.GetChild(modal.GetChildCount() - 1);
+        if (panelRoot == null) return;
 
-        // Dim backdrop
-        var backdrop = new ColorRect { Color = new Color(0f, 0f, 0f, 0.5f) };
+        var genericPopup = NGenericPopup.Create();
+        if (genericPopup == null)
+        {
+            DoRestore(config, entryControls);
+            return;
+        }
+
+        // Wrap in a named container so the Escape handler can find and dismiss it.
+        // Includes a dark backdrop since the popup scene doesn't provide one
+        // (NModalContainer normally supplies it via showBackstop).
+        var wrapper = new Control
+        {
+            Name = "RestoreConfirmPopup",
+            MouseFilter = Control.MouseFilterEnum.Stop,
+        };
+        wrapper.SetAnchorsPreset(Control.LayoutPreset.FullRect);
+
+        var backdrop = new ColorRect
+        {
+            Color = new Color(0f, 0f, 0f, 0.5f),
+            MouseFilter = Control.MouseFilterEnum.Stop,
+        };
         backdrop.SetAnchorsPreset(Control.LayoutPreset.FullRect);
-        popup.AddChild(backdrop);
+        wrapper.AddChild(backdrop);
 
-        var panel = new PanelContainer();
-        panel.AnchorLeft = 0.375f; panel.AnchorRight = 0.625f;
-        panel.AnchorTop = 0.425f; panel.AnchorBottom = 0.575f;
-        var panelStyle = new StyleBoxFlat
+        // Let the popup scene's own layout handle centering —
+        // forcing FullRect overrides the scene's anchor/offset setup.
+        wrapper.AddChild(genericPopup);
+        // The popup was designed for a full-screen parent (NModalContainer),
+        // so the wrapper being FullRect provides the right reference frame.
+        panelRoot.AddChild(wrapper);
+
+        // _Ready has fired: VerticalPopup children are initialized.
+        var vp = genericPopup.GetNodeOrNull("VerticalPopup");
+        if (vp == null) { wrapper.QueueFree(); DoRestore(config, entryControls); return; }
+
+        vp.Call("SetText", "Restore Defaults",
+            $"Restore all {config.Name} settings\nto their default values?");
+
+        var yesBtn = vp.GetNodeOrNull("YesButton");
+        var noBtn = vp.GetNodeOrNull("NoButton");
+        if (yesBtn == null || noBtn == null) { wrapper.QueueFree(); DoRestore(config, entryControls); return; }
+
+        yesBtn.Call("SetText", "Restore");
+        noBtn.Call("SetText", "Cancel");
+        yesBtn.Set("IsYes", true);
+        ((Control)noBtn).Visible = true;
+
+        yesBtn.CallDeferred(NClickableControl.MethodName.Enable);
+        noBtn.CallDeferred(NClickableControl.MethodName.Enable);
+
+        var capturedConfig = config;
+        var capturedControls = entryControls;
+        var capturedWrapper = wrapper;
+
+        yesBtn.Connect(NClickableControl.SignalName.Released, Callable.From<NButton>(_ =>
         {
-            BgColor = new Color(0.12f, 0.12f, 0.18f, 1f),
-            CornerRadiusTopLeft = 6, CornerRadiusTopRight = 6,
-            CornerRadiusBottomLeft = 6, CornerRadiusBottomRight = 6,
-            BorderColor = AccentColor,
-            BorderWidthTop = 1, BorderWidthBottom = 1,
-            BorderWidthLeft = 1, BorderWidthRight = 1,
-        };
-        panel.AddThemeStyleboxOverride("panel", panelStyle);
-        popup.AddChild(panel);
+            DoRestore(capturedConfig, capturedControls);
+            capturedWrapper.QueueFree();
+        }));
 
-        var vbox = new VBoxContainer();
-        vbox.AddThemeConstantOverride("separation", 16);
-        vbox.Alignment = BoxContainer.AlignmentMode.Center;
-        var margin = new MarginContainer();
-        margin.AddThemeConstantOverride("margin_left", 24);
-        margin.AddThemeConstantOverride("margin_right", 24);
-        margin.AddThemeConstantOverride("margin_top", 20);
-        margin.AddThemeConstantOverride("margin_bottom", 20);
-        margin.AddChild(vbox);
-        panel.AddChild(margin);
-
-        var msg = new Label
+        noBtn.Connect(NClickableControl.SignalName.Released, Callable.From<NButton>(_ =>
         {
-            Text = $"Restore all {config.Name} settings to their default values?",
-            HorizontalAlignment = HorizontalAlignment.Center,
-            AutowrapMode = TextServer.AutowrapMode.WordSmart,
-        };
-        msg.AddThemeFontSizeOverride("font_size", 15);
-        vbox.AddChild(msg);
+            capturedWrapper.QueueFree();
+        }));
+    }
 
-        var btnRow = new HBoxContainer
-        {
-            SizeFlagsHorizontal = Control.SizeFlags.ShrinkCenter,
-        };
-        btnRow.AddThemeConstantOverride("separation", 16);
-
-        var cancelBtn = new Button
-        {
-            Text = "Cancel",
-            CustomMinimumSize = new Vector2(120, 34),
-        };
-        cancelBtn.AddThemeFontSizeOverride("font_size", 14);
-        cancelBtn.Pressed += () => popup.QueueFree();
-        btnRow.AddChild(cancelBtn);
-
-        var confirmBtn = new Button
-        {
-            Text = "Restore",
-            CustomMinimumSize = new Vector2(120, 34),
-        };
-        confirmBtn.AddThemeFontSizeOverride("font_size", 14);
-        confirmBtn.Pressed += () =>
-        {
-            foreach (var entry in config.Entries)
-                entry.ResetToDefault();
-            config.Save();
-            foreach (var (entry, row) in entryControls)
-                UpdateEntryControl(entry, row);
-            popup.QueueFree();
-        };
-        btnRow.AddChild(confirmBtn);
-
-        vbox.AddChild(btnRow);
-
-        // Add to the config modal's root so it overlays the content.
-        NModalContainer.Instance?.GetChild(NModalContainer.Instance.GetChildCount() - 1)?.AddChild(popup);
+    private static void DoRestore(FeatureConfig config, List<(ConfigEntry entry, Control control)> entryControls)
+    {
+        foreach (var entry in config.Entries)
+            entry.ResetToDefault();
+        config.Save();
+        foreach (var (entry, row) in entryControls)
+            UpdateEntryControl(entry, row);
     }
 
     private static void UpdateEntryControl(ConfigEntry entry, Control row)
     {
         if (row is not HBoxContainer hbox) return;
-        // The input control is the last child of the row HBoxContainer.
         var last = hbox.GetChild(hbox.GetChildCount() - 1);
+
         switch (entry.Type)
         {
-            case ConfigEntryType.Bool when last is CheckBox cb:
-                cb.SetPressedNoSignal((bool)entry.Value);
+            case ConfigEntryType.Bool:
+                try { last.Set("IsTicked", (bool)entry.Value); }
+                catch { if (last is CheckBox cb) cb.SetPressedNoSignal((bool)entry.Value); }
                 break;
-            case ConfigEntryType.Int when last is SpinBox spinI:
-                spinI.Value = (int)entry.Value;
+            case ConfigEntryType.Int:
+            case ConfigEntryType.Float:
+            {
+                // Slider container: HBoxContainer { ConfigSlider (HSlider), ConfigValue (LineEdit) }
+                if (last is not HBoxContainer sliderBox) break;
+                var slider = sliderBox.GetNodeOrNull<Godot.Range>("ConfigSlider");
+                var input = sliderBox.GetNodeOrNull<LineEdit>("ConfigValue");
+                bool isInt = entry.Type == ConfigEntryType.Int;
+                double v = isInt ? (int)entry.Value : (float)entry.Value;
+                slider?.SetValueNoSignal(v);
+                if (input != null)
+                    input.Text = isInt ? ((int)v).ToString() : ((float)v).ToString("F0");
                 break;
-            case ConfigEntryType.Float when last is SpinBox spinF:
-                spinF.Value = (float)entry.Value;
-                break;
+            }
             case ConfigEntryType.Color when last is ColorPickerButton picker:
                 picker.Color = (Color)entry.Value;
                 break;
@@ -562,44 +863,6 @@ internal static class DubiousConfigModal
                     for (int i = 0; i < entry.EnumOptions.Length; i++)
                         if (entry.EnumOptions[i] == (string)entry.Value) { opt.Selected = i; break; }
                 break;
-        }
-    }
-
-    private static Button MakeTabButton(string text)
-    {
-        var btn = new Button
-        {
-            Text = text,
-            CustomMinimumSize = new Vector2(0, 28),
-            SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
-            FocusMode = Control.FocusModeEnum.None,
-        };
-        btn.AddThemeFontSizeOverride("font_size", 12);
-        return btn;
-    }
-
-    private static void UpdateTabHighlights(Button[] tabs, int active)
-    {
-        for (int i = 0; i < tabs.Length; i++)
-        {
-            var bg = i == active ? TabActiveBg : TabInactiveBg;
-            var style = new StyleBoxFlat { BgColor = bg };
-            style.CornerRadiusTopLeft = 4;
-            style.CornerRadiusTopRight = 4;
-            if (i == active)
-            {
-                style.BorderColor = AccentColor;
-                style.BorderWidthBottom = 2;
-            }
-            tabs[i].AddThemeStyleboxOverride("normal", style);
-            tabs[i].AddThemeStyleboxOverride("hover", new StyleBoxFlat
-            {
-                BgColor = new Color(bg.R + 0.05f, bg.G + 0.05f, bg.B + 0.05f, bg.A),
-                CornerRadiusTopLeft = 4, CornerRadiusTopRight = 4,
-            });
-            tabs[i].AddThemeStyleboxOverride("pressed", style);
-            tabs[i].AddThemeColorOverride("font_color", i == active ? AccentColor : DimText);
-            tabs[i].AddThemeColorOverride("font_hover_color", i == active ? AccentColor : new Color(0.9f, 0.9f, 0.9f));
         }
     }
 }
