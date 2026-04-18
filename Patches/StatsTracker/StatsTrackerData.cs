@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Godot;
@@ -14,7 +15,9 @@ using MegaCrit.Sts2.Core.Entities.Creatures;
 using MegaCrit.Sts2.Core.GameActions.Multiplayer;
 using MegaCrit.Sts2.Core.Models;
 using MegaCrit.Sts2.Core.Models.Orbs;
+using MegaCrit.Sts2.Core.Models.Potions;
 using MegaCrit.Sts2.Core.Models.Powers;
+using MegaCrit.Sts2.Core.Models.Relics;
 using MegaCrit.Sts2.Core.Platform;
 using MegaCrit.Sts2.Core.Runs;
 using MegaCrit.Sts2.Core.Saves;
@@ -93,6 +96,103 @@ internal static class StatsTrackerData
     // keyed by creature → list of (netId, powerName) pairs. Used to attribute
     // null-dealer damage (Poison/Haunt/Strangle ticks) with source names.
     private static readonly Dictionary<Creature, List<(ulong netId, string powerName)>> _debuffSources = new();
+
+    // --- Source-attribution patch tables ---
+    // Adding a new relic/potion/orb = append one tuple. The manual Harmony
+    // patches in PatchSourceAttribution wire shared prefix/postfix methods
+    // that set/clear the side-channel fields.
+
+    private static readonly (Type type, string method)[] DamageRelicPatches =
+    {
+        (typeof(FestivePopper), nameof(FestivePopper.AfterPlayerTurnStart)),
+        (typeof(ForgottenSoul), nameof(ForgottenSoul.AfterCardExhausted)),
+        (typeof(Kusarigama), nameof(Kusarigama.AfterCardPlayed)),
+        (typeof(LetterOpener), nameof(LetterOpener.AfterCardPlayed)),
+        (typeof(MercuryHourglass), nameof(MercuryHourglass.AfterPlayerTurnStart)),
+        (typeof(Metronome), nameof(Metronome.AfterOrbChanneled)),
+        (typeof(MrStruggles), nameof(MrStruggles.AfterPlayerTurnStart)),
+        (typeof(ParryingShield), nameof(ParryingShield.AfterTurnEnd)),
+        (typeof(ScreamingFlagon), nameof(ScreamingFlagon.BeforeTurnEnd)),
+        (typeof(StoneCalendar), nameof(StoneCalendar.BeforeTurnEnd)),
+        (typeof(Tingsha), nameof(Tingsha.AfterCardDiscarded)),
+    };
+
+    private static readonly (Type type, string method)[] DamagePotionPatches =
+    {
+        (typeof(ExplosiveAmpoule), nameof(ExplosiveAmpoule.OnUse)),
+        (typeof(FirePotion), nameof(FirePotion.OnUse)),
+        (typeof(PotionShapedRock), nameof(PotionShapedRock.OnUse)),
+    };
+
+    private static readonly (Type type, string method, string label)[] DamageOrbPatches =
+    {
+        (typeof(LightningOrb), nameof(LightningOrb.Passive), "Lightning Orb"),
+        (typeof(LightningOrb), nameof(LightningOrb.Evoke), "Lightning Orb"),
+        (typeof(DarkOrb), nameof(DarkOrb.Evoke), "Dark Orb"),
+        (typeof(GlassOrb), nameof(GlassOrb.Passive), "Glass Orb"),
+        (typeof(GlassOrb), nameof(GlassOrb.Evoke), "Glass Orb"),
+    };
+
+    private static readonly (Type type, string method, string label)[] BlockOrbPatches =
+    {
+        (typeof(FrostOrb), nameof(FrostOrb.Passive), "Frost Orb"),
+        (typeof(FrostOrb), nameof(FrostOrb.Evoke), "Frost Orb"),
+    };
+
+    // Lookup for orb label injection — populated during PatchSourceAttribution,
+    // read by OrbDamagePrefix/OrbBlockPrefix via __originalMethod.
+    private static readonly Dictionary<MethodBase, string> _damageOrbLabels = new();
+    private static readonly Dictionary<MethodBase, string> _blockOrbLabels = new();
+
+    // Shared prefix/postfix methods used by manual Harmony patches.
+    public static void RelicDamagePrefix(RelicModel __instance) =>
+        CurrentDamageSource = __instance.Title.GetFormattedText();
+    public static void PotionDamagePrefix(PotionModel __instance) =>
+        CurrentDamageSource = __instance.Title.GetFormattedText();
+    public static void DamageSourcePostfix() =>
+        CurrentDamageSource = null;
+    public static void OrbDamagePrefix(MethodBase __originalMethod)
+    {
+        if (_damageOrbLabels.TryGetValue(__originalMethod, out var label))
+            CurrentDamageSource = label;
+    }
+    public static void OrbBlockPrefix(MethodBase __originalMethod)
+    {
+        if (_blockOrbLabels.TryGetValue(__originalMethod, out var label))
+            CurrentBlockSource = label;
+    }
+    public static void BlockSourcePostfix() =>
+        CurrentBlockSource = null;
+
+    internal static void PatchSourceAttribution(Harmony harmony)
+    {
+        var relicPfx = new HarmonyMethod(AccessTools.Method(typeof(StatsTrackerData), nameof(RelicDamagePrefix)));
+        var potionPfx = new HarmonyMethod(AccessTools.Method(typeof(StatsTrackerData), nameof(PotionDamagePrefix)));
+        var dmgPost = new HarmonyMethod(AccessTools.Method(typeof(StatsTrackerData), nameof(DamageSourcePostfix)));
+
+        foreach (var (type, method) in DamageRelicPatches)
+            harmony.Patch(AccessTools.Method(type, method), prefix: relicPfx, postfix: dmgPost);
+
+        foreach (var (type, method) in DamagePotionPatches)
+            harmony.Patch(AccessTools.Method(type, method), prefix: potionPfx, postfix: dmgPost);
+
+        var orbDmgPfx = new HarmonyMethod(AccessTools.Method(typeof(StatsTrackerData), nameof(OrbDamagePrefix)));
+        foreach (var (type, method, label) in DamageOrbPatches)
+        {
+            var original = AccessTools.Method(type, method);
+            _damageOrbLabels[original] = label;
+            harmony.Patch(original, prefix: orbDmgPfx, postfix: dmgPost);
+        }
+
+        var orbBlkPfx = new HarmonyMethod(AccessTools.Method(typeof(StatsTrackerData), nameof(OrbBlockPrefix)));
+        var blkPost = new HarmonyMethod(AccessTools.Method(typeof(StatsTrackerData), nameof(BlockSourcePostfix)));
+        foreach (var (type, method, label) in BlockOrbPatches)
+        {
+            var original = AccessTools.Method(type, method);
+            _blockOrbLabels[original] = label;
+            harmony.Patch(original, prefix: orbBlkPfx, postfix: blkPost);
+        }
+    }
 
     internal static DmScopeStats ForScope(DmScope scope) => scope switch
     {
@@ -455,71 +555,6 @@ public static class PatchDoomKill
         try { StatsTrackerData.ProcessDoomKill(creatures); }
         catch (Exception e) { MainFile.Logger.Warn($"StatsTracker DoomKill: {e.Message}"); }
     }
-}
-
-// FrostOrb.Passive/Evoke call GainBlock with null CardPlay — set a flag
-// so ProcessBlock can label the source as "Frost Orb" instead of "Other".
-[HarmonyPatch(typeof(FrostOrb), nameof(FrostOrb.Passive))]
-public static class PatchFrostOrbPassive
-{
-    [HarmonyPrefix]
-    public static void Prefix() => StatsTrackerData.CurrentBlockSource = "Frost Orb";
-    [HarmonyPostfix]
-    public static void Postfix() => StatsTrackerData.CurrentBlockSource = null;
-}
-
-[HarmonyPatch(typeof(FrostOrb), nameof(FrostOrb.Evoke))]
-public static class PatchFrostOrbEvoke
-{
-    [HarmonyPrefix]
-    public static void Prefix() => StatsTrackerData.CurrentBlockSource = "Frost Orb";
-    [HarmonyPostfix]
-    public static void Postfix() => StatsTrackerData.CurrentBlockSource = null;
-}
-
-[HarmonyPatch(typeof(LightningOrb), nameof(LightningOrb.Passive))]
-public static class PatchLightningOrbPassive
-{
-    [HarmonyPrefix]
-    public static void Prefix() => StatsTrackerData.CurrentDamageSource = "Lightning Orb";
-    [HarmonyPostfix]
-    public static void Postfix() => StatsTrackerData.CurrentDamageSource = null;
-}
-
-[HarmonyPatch(typeof(LightningOrb), nameof(LightningOrb.Evoke))]
-public static class PatchLightningOrbEvoke
-{
-    [HarmonyPrefix]
-    public static void Prefix() => StatsTrackerData.CurrentDamageSource = "Lightning Orb";
-    [HarmonyPostfix]
-    public static void Postfix() => StatsTrackerData.CurrentDamageSource = null;
-}
-
-[HarmonyPatch(typeof(DarkOrb), nameof(DarkOrb.Evoke))]
-public static class PatchDarkOrbEvoke
-{
-    [HarmonyPrefix]
-    public static void Prefix() => StatsTrackerData.CurrentDamageSource = "Dark Orb";
-    [HarmonyPostfix]
-    public static void Postfix() => StatsTrackerData.CurrentDamageSource = null;
-}
-
-[HarmonyPatch(typeof(GlassOrb), nameof(GlassOrb.Passive))]
-public static class PatchGlassOrbPassive
-{
-    [HarmonyPrefix]
-    public static void Prefix() => StatsTrackerData.CurrentDamageSource = "Glass Orb";
-    [HarmonyPostfix]
-    public static void Postfix() => StatsTrackerData.CurrentDamageSource = null;
-}
-
-[HarmonyPatch(typeof(GlassOrb), nameof(GlassOrb.Evoke))]
-public static class PatchGlassOrbEvoke
-{
-    [HarmonyPrefix]
-    public static void Prefix() => StatsTrackerData.CurrentDamageSource = "Glass Orb";
-    [HarmonyPostfix]
-    public static void Postfix() => StatsTrackerData.CurrentDamageSource = null;
 }
 
 internal sealed class DmSidecarPlayer

@@ -23,7 +23,10 @@ public partial class MainFile : Node
         harmony.PatchAll();
 
         if (StatsTrackerConfig.Instance.Enabled)
+        {
             StatsTrackerData.Install();
+            StatsTrackerData.PatchSourceAttribution(harmony);
+        }
 
         if (UnifiedSavePathConfig.Instance.Enabled)
             UserDataPathProvider.IsRunningModded = false;
