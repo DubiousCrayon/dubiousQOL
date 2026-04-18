@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Godot;
 using HarmonyLib;
 using MegaCrit.Sts2.Core.Multiplayer;
@@ -134,6 +135,7 @@ internal sealed partial class StatsTrackerOverlay : Control
     private Control _metricSelector = null!;
     private RichTextLabel _summaryLabel = null!;
     private Label _summaryChevron = null!;
+    private Control? _breakdownPopup;
 
     public StatsTrackerOverlay()
     {
@@ -191,9 +193,6 @@ internal sealed partial class StatsTrackerOverlay : Control
         bool hide = false;
         try
         {
-            // InUse is the authoritative "a pause/compendium/settings screen is
-            // open" flag. The container's own Visible is always true since it
-            // stays mounted — only CurrentCapstoneScreen toggles.
             var cap = NCapstoneContainer.Instance;
             if (cap != null && cap.InUse) hide = true;
         }
@@ -203,6 +202,9 @@ internal sealed partial class StatsTrackerOverlay : Control
             _menuHiding = hide;
             UpdateEffectiveVisibility();
         }
+
+        if (_breakdownPopup != null && IsInstanceValid(_breakdownPopup))
+            RepositionBreakdown();
     }
 
     private void UpdateEffectiveVisibility()
@@ -517,6 +519,7 @@ internal sealed partial class StatsTrackerOverlay : Control
     public void Refresh()
     {
         if (!IsInstanceValid(_rowBox)) return;
+        HideBreakdown();
         foreach (var child in _rowBox.GetChildren())
             child.QueueFree();
 
@@ -528,7 +531,7 @@ internal sealed partial class StatsTrackerOverlay : Control
         // bar and the name is just your own steam handle, which adds noise.
         bool showNames = RunManager.Instance?.NetService?.Type.IsMultiplayer() ?? false;
 
-        var entries = new List<(float value, Color color, Texture2D? icon, string name)>();
+        var entries = new List<(float value, Color color, Texture2D? icon, string name, Dictionary<string, long>? breakdown)>();
         if (state?.Players != null)
         {
             foreach (var player in state.Players)
@@ -540,7 +543,8 @@ internal sealed partial class StatsTrackerOverlay : Control
                 var character = player.Character;
                 var color = character != null ? character.MapDrawingColor : new Color(0.6f, 0.6f, 0.6f);
                 var icon = character?.IconTexture;
-                entries.Add((val, color, icon, showNames ? ResolvePlayerName(player.NetId) : ""));
+                var bd = GetBreakdown(stats);
+                entries.Add((val, color, icon, showNames ? ResolvePlayerName(player.NetId) : "", bd));
             }
         }
 
@@ -554,7 +558,8 @@ internal sealed partial class StatsTrackerOverlay : Control
                 if (raw > 0)
                 {
                     float val = _perTurn ? (float)raw / turns : raw;
-                    entries.Add((val, new Color(0.55f, 0.55f, 0.55f), null, "Unattributed"));
+                    var bd = GetBreakdown(kv.Value);
+                    entries.Add((val, new Color(0.55f, 0.55f, 0.55f), null, "Unattributed", bd));
                 }
                 continue;
             }
@@ -567,7 +572,8 @@ internal sealed partial class StatsTrackerOverlay : Control
             if (present) continue;
             long raw2 = GetMetric(kv.Value);
             float val2 = _perTurn ? (float)raw2 / turns : raw2;
-            entries.Add((val2, new Color(0.6f, 0.6f, 0.6f), null, showNames ? ResolvePlayerName(kv.Key) : ""));
+            var bd2 = GetBreakdown(kv.Value);
+            entries.Add((val2, new Color(0.6f, 0.6f, 0.6f), null, showNames ? ResolvePlayerName(kv.Key) : "", bd2));
         }
 
         entries.Sort((a, b) => b.value.CompareTo(a.value));
@@ -576,7 +582,7 @@ internal sealed partial class StatsTrackerOverlay : Control
         foreach (var e in entries) if (e.value > max) max = e.value;
 
         foreach (var e in entries)
-            _rowBox.AddChild(MakeRow(e.value, max, e.color, e.icon, e.name));
+            _rowBox.AddChild(MakeRow(e.value, max, e.color, e.icon, e.name, e.breakdown));
 
         int n = Math.Max(1, entries.Count);
         _contentHeight = CurrentHeaderHeight + n * RowStrideH + Pad;
@@ -621,13 +627,25 @@ internal sealed partial class StatsTrackerOverlay : Control
         };
     }
 
+    private Dictionary<string, long>? GetBreakdown(DmPlayerStats? stats)
+    {
+        if (stats == null) return null;
+        return _metric switch
+        {
+            DmMetric.DamageDealt => stats.DamageBySource,
+            DmMetric.BlockGained => stats.BlockBySource,
+            DmMetric.HpLost => stats.HpLostBySource,
+            _ => null,
+        };
+    }
+
     private static string FormatValue(float v)
     {
         if (v >= 1000f) return (v / 1000f).ToString("0.0") + "k";
         return ((int)Math.Round(v)).ToString();
     }
 
-    internal Control MakeRow(float value, float maxValue, Color barColor, Texture2D? iconTex, string playerName)
+    internal Control MakeRow(float value, float maxValue, Color barColor, Texture2D? iconTex, string playerName, Dictionary<string, long>? breakdown)
     {
         var row = new HBoxContainer
         {
@@ -666,10 +684,18 @@ internal sealed partial class StatsTrackerOverlay : Control
         {
             SizeFlagsHorizontal = SizeFlags.ExpandFill,
             SizeFlagsVertical = SizeFlags.Fill,
-            MouseFilter = MouseFilterEnum.Ignore,
+            MouseFilter = breakdown != null && breakdown.Count > 0
+                ? MouseFilterEnum.Stop : MouseFilterEnum.Ignore,
         };
         barBg.AddThemeStyleboxOverride("panel", MakeStyleBox(BarBgColor, 3));
         row.AddChild(barBg);
+
+        if (breakdown != null && breakdown.Count > 0)
+        {
+            var bd = breakdown;
+            barBg.MouseEntered += () => ShowBreakdown(bd, barBg);
+            barBg.MouseExited += HideBreakdown;
+        }
 
         var barFill = new ColorRect
         {
@@ -728,6 +754,189 @@ internal sealed partial class StatsTrackerOverlay : Control
         barBg.AddChild(valLabel);
 
         return row;
+    }
+
+    // Distinct hues for breakdown rows so adjacent bars are easy to tell apart.
+    private static readonly Color[] BreakdownBarColors =
+    {
+        new(0.85f, 0.35f, 0.35f), // red
+        new(0.35f, 0.65f, 0.90f), // blue
+        new(0.45f, 0.80f, 0.45f), // green
+        new(0.90f, 0.70f, 0.30f), // amber
+        new(0.70f, 0.45f, 0.85f), // purple
+        new(0.30f, 0.80f, 0.75f), // teal
+        new(0.90f, 0.50f, 0.65f), // pink
+        new(0.60f, 0.75f, 0.35f), // lime
+        new(0.85f, 0.55f, 0.30f), // orange
+        new(0.55f, 0.55f, 0.80f), // slate
+    };
+
+    // Anchor bar saved by ShowBreakdown so _Process can reposition the popup
+    // to track the mouse while hovering.
+    private Control? _breakdownAnchor;
+
+    private void ShowBreakdown(Dictionary<string, long> breakdown, Control anchor)
+    {
+        HideBreakdown();
+
+        var scope = StatsTrackerData.ForScope(_scope);
+        int turns = Math.Max(1, scope.PlayerTurns);
+        var accentColor = MetricAccentColors[(int)_metric];
+
+        var sorted = breakdown.Where(kv => kv.Value > 0)
+            .OrderByDescending(kv => kv.Value)
+            .Take(10)
+            .ToList();
+        if (sorted.Count == 0) return;
+
+        long total = breakdown.Values.Sum(v => Math.Max(0, v));
+        if (total <= 0) return;
+
+        const float popupW = 240f;
+        const float rowH = 20f;
+        const float headerH = 24f;
+        const float padX = 8f;
+        const float padY = 6f;
+        float popupH = headerH + sorted.Count * rowH + padY * 2;
+
+        var popup = new Control
+        {
+            Size = new Vector2(popupW, popupH),
+            MouseFilter = MouseFilterEnum.Ignore,
+            ZIndex = 10,
+        };
+
+        var bg = new Panel { MouseFilter = MouseFilterEnum.Ignore };
+        bg.AddThemeStyleboxOverride("panel", MakeStyleBox(BgColor, 4, BorderColor, 1));
+        bg.SetAnchorsPreset(LayoutPreset.FullRect);
+        popup.AddChild(bg);
+
+        var header = new Label
+        {
+            Text = MetricNames[(int)_metric],
+            HorizontalAlignment = HorizontalAlignment.Left,
+            VerticalAlignment = VerticalAlignment.Center,
+            MouseFilter = MouseFilterEnum.Ignore,
+        };
+        header.Position = new Vector2(padX, padY);
+        header.Size = new Vector2(popupW - padX * 2, headerH);
+        header.AddThemeFontSizeOverride("font_size", 12);
+        header.AddThemeColorOverride("font_color", accentColor);
+        popup.AddChild(header);
+
+        // Each row: backdrop bar (full width), source bar (proportional to
+        // total, not top value — so 73% source fills 73% of the bar), text
+        // overlay with source name left and value+% right.
+        float contentX = padX;
+        float contentW = popupW - padX * 2;
+        float y = padY + headerH;
+        int colorIdx = 0;
+        foreach (var kv in sorted)
+        {
+            float displayVal = _perTurn ? (float)kv.Value / turns : kv.Value;
+            float pct = total > 0 ? (float)kv.Value / total * 100f : 0f;
+            float barPct = total > 0 ? (float)kv.Value / total : 0f;
+            var barColor = BreakdownBarColors[colorIdx % BreakdownBarColors.Length];
+
+            // Layer 1: backdrop bar (full row width)
+            var backdrop = new ColorRect
+            {
+                Color = BarBgColor,
+                Position = new Vector2(contentX, y),
+                Size = new Vector2(contentW, rowH),
+                MouseFilter = MouseFilterEnum.Ignore,
+            };
+            popup.AddChild(backdrop);
+
+            // Layer 2: source bar (proportional to total)
+            if (barPct > 0)
+            {
+                var barFill = new ColorRect
+                {
+                    Color = new Color(barColor.R, barColor.G, barColor.B, 0.55f),
+                    Position = new Vector2(contentX, y),
+                    Size = new Vector2(contentW * barPct, rowH),
+                    MouseFilter = MouseFilterEnum.Ignore,
+                };
+                popup.AddChild(barFill);
+            }
+
+            // Layer 3: text overlay
+            var nameLabel = new Label
+            {
+                Text = kv.Key,
+                HorizontalAlignment = HorizontalAlignment.Left,
+                VerticalAlignment = VerticalAlignment.Center,
+                ClipText = true,
+                MouseFilter = MouseFilterEnum.Ignore,
+            };
+            nameLabel.Position = new Vector2(contentX + 4, y);
+            nameLabel.Size = new Vector2(contentW * 0.55f, rowH);
+            nameLabel.AddThemeFontSizeOverride("font_size", 11);
+            nameLabel.AddThemeColorOverride("font_color", new Color(0.95f, 0.95f, 0.95f));
+            nameLabel.AddThemeColorOverride("font_shadow_color", new Color(0f, 0f, 0f, 0.9f));
+            nameLabel.AddThemeConstantOverride("shadow_offset_x", 1);
+            nameLabel.AddThemeConstantOverride("shadow_offset_y", 1);
+            nameLabel.AddThemeConstantOverride("shadow_outline_size", 3);
+            popup.AddChild(nameLabel);
+
+            string valText = FormatValue(displayVal) + $" ({pct:0}%)";
+            var valLabel = new Label
+            {
+                Text = valText,
+                HorizontalAlignment = HorizontalAlignment.Right,
+                VerticalAlignment = VerticalAlignment.Center,
+                MouseFilter = MouseFilterEnum.Ignore,
+            };
+            valLabel.Position = new Vector2(contentX, y);
+            valLabel.Size = new Vector2(contentW - 4, rowH);
+            valLabel.AddThemeFontSizeOverride("font_size", 11);
+            valLabel.AddThemeColorOverride("font_color", new Color(0.92f, 0.92f, 0.95f));
+            valLabel.AddThemeColorOverride("font_shadow_color", new Color(0f, 0f, 0f, 0.9f));
+            valLabel.AddThemeConstantOverride("shadow_offset_x", 1);
+            valLabel.AddThemeConstantOverride("shadow_offset_y", 1);
+            valLabel.AddThemeConstantOverride("shadow_outline_size", 3);
+            popup.AddChild(valLabel);
+
+            y += rowH;
+            colorIdx++;
+        }
+
+        _breakdownPopup = popup;
+        _breakdownAnchor = anchor;
+        var mountParent = GetParent() as Control ?? this;
+        mountParent.AddChild(popup);
+
+        RepositionBreakdown();
+    }
+
+    private void RepositionBreakdown()
+    {
+        if (_breakdownPopup == null || !IsInstanceValid(_breakdownPopup)) return;
+        if (_breakdownAnchor == null || !IsInstanceValid(_breakdownAnchor)) return;
+
+        var mousePos = GetViewport()?.GetMousePosition() ?? _breakdownAnchor.GlobalPosition;
+        var vpSize = GetViewport()?.GetVisibleRect().Size ?? new Vector2(1920, 1080);
+        float popupW = _breakdownPopup.Size.X;
+        float popupH = _breakdownPopup.Size.Y;
+
+        // Left of mouse, below the bar
+        float popupX = mousePos.X - popupW;
+        float popupY = _breakdownAnchor.GlobalPosition.Y + _breakdownAnchor.Size.Y + 2f;
+
+        if (popupX < 0) popupX = mousePos.X;
+        if (popupY + popupH > vpSize.Y) popupY = _breakdownAnchor.GlobalPosition.Y - popupH - 2f;
+        if (popupY < 0) popupY = 0;
+
+        _breakdownPopup.GlobalPosition = new Vector2(popupX, popupY);
+    }
+
+    private void HideBreakdown()
+    {
+        if (_breakdownPopup != null && IsInstanceValid(_breakdownPopup))
+            _breakdownPopup.QueueFree();
+        _breakdownPopup = null;
+        _breakdownAnchor = null;
     }
 
     private void HandleDragInput(InputEvent @event)

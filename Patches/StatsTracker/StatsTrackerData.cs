@@ -13,6 +13,7 @@ using MegaCrit.Sts2.Core.Commands;
 using MegaCrit.Sts2.Core.Entities.Creatures;
 using MegaCrit.Sts2.Core.GameActions.Multiplayer;
 using MegaCrit.Sts2.Core.Models;
+using MegaCrit.Sts2.Core.Models.Orbs;
 using MegaCrit.Sts2.Core.Models.Powers;
 using MegaCrit.Sts2.Core.Platform;
 using MegaCrit.Sts2.Core.Runs;
@@ -38,6 +39,9 @@ internal sealed class DmPlayerStats
     public long DamageDealt;
     public long BlockGained;
     public long HpLost;
+    public readonly Dictionary<string, long> DamageBySource = new();
+    public readonly Dictionary<string, long> BlockBySource = new();
+    public readonly Dictionary<string, long> HpLostBySource = new();
 }
 
 internal sealed class DmScopeStats
@@ -72,15 +76,23 @@ internal static class StatsTrackerData
     // attribute the killing blow when CombatHistory.DamageReceived is blocked
     // by the IsEnding guard.
     internal static Creature? CurrentDealer;
+    // Set by CreatureCmd.Damage prefix for source tracking on killing blows.
+    internal static CardModel? CurrentCardSource;
+    // Set by FrostOrb prefix so ProcessBlock can distinguish orb block from
+    // relic/power block (both pass null CardPlay to GainBlock).
+    internal static string? CurrentBlockSource;
+    // Set by orb damage prefixes (Lightning/Dark) so ResolveDamageSource can
+    // label orb damage instead of falling through to the player character name.
+    internal static string? CurrentDamageSource;
 
     private static bool _installed;
     private static bool _hookedHistory;
     private static int _processedCount;
 
     // Tracks which players applied damage-dealing debuffs to each enemy,
-    // so null-dealer damage (Poison/Haunt/Strangle ticks) can be attributed
-    // to the correct player(s). Populated from PowerReceivedEntry.
-    private static readonly Dictionary<Creature, HashSet<ulong>> _debuffDealers = new();
+    // keyed by creature → list of (netId, powerName) pairs. Used to attribute
+    // null-dealer damage (Poison/Haunt/Strangle ticks) with source names.
+    private static readonly Dictionary<Creature, List<(ulong netId, string powerName)>> _debuffSources = new();
 
     internal static DmScopeStats ForScope(DmScope scope) => scope switch
     {
@@ -106,7 +118,7 @@ internal static class StatsTrackerData
     {
         Combat.Reset();
         _processedCount = 0;
-        _debuffDealers.Clear();
+        _debuffSources.Clear();
         if (!_hookedHistory)
         {
             // History is a singleton property on CombatManager (constructed in its
@@ -173,7 +185,7 @@ internal static class StatsTrackerData
     private static void ProcessPower(PowerReceivedEntry p)
     {
         if (p.Amount <= 0 || p.Applier == null) return;
-        if (p.Power is not (PoisonPower or HauntPower or StranglePower)) return;
+        if (p.Power is not (PoisonPower or HauntPower or StranglePower or DoomPower)) return;
         var receiver = p.Actor;
         if (receiver.Side != CombatSide.Enemy) return;
         var applier = p.Applier;
@@ -181,9 +193,14 @@ internal static class StatsTrackerData
                   : applier.IsPet ? applier.PetOwner
                   : null;
         if (owner == null) return;
-        if (!_debuffDealers.TryGetValue(receiver, out var set))
-            _debuffDealers[receiver] = set = new HashSet<ulong>();
-        set.Add(owner.NetId);
+        string powerName = p.Power.GetType().Name.Replace("Power", "");
+        if (!_debuffSources.TryGetValue(receiver, out var list))
+            _debuffSources[receiver] = list = new List<(ulong, string)>();
+        // Avoid duplicate entries for the same player+power combo.
+        bool found = false;
+        foreach (var entry in list)
+            if (entry.netId == owner.NetId && entry.powerName == powerName) { found = true; break; }
+        if (!found) list.Add((owner.NetId, powerName));
     }
 
     private static void ProcessDamage(DamageReceivedEntry d)
@@ -202,7 +219,10 @@ internal static class StatsTrackerData
                           : dealer.IsPet ? dealer.PetOwner
                           : null;
                 if (owner != null)
-                    AddAll(owner.NetId, s => s.DamageDealt += hpRemoved);
+                {
+                    string source = ResolveDamageSource(d.CardSource, dealer);
+                    AddDamage(owner.NetId, hpRemoved, source);
+                }
             }
             else
             {
@@ -211,26 +231,69 @@ internal static class StatsTrackerData
         }
 
         if (d.Receiver != null && d.Receiver.IsPlayer && d.Receiver.Player != null)
-            AddAll(d.Receiver.Player.NetId, s => s.HpLost += hpRemoved);
+        {
+            string hpSource = ResolveHpLostSource(d.Dealer, d.CardSource);
+            AddHpLost(d.Receiver.Player.NetId, hpRemoved, hpSource);
+        }
     }
 
-    private static void AttributeNullDealerDamage(Creature receiver, int total)
+    private static string ResolveDamageSource(CardModel? cardSource, Creature? dealer)
     {
-        if (_debuffDealers.TryGetValue(receiver, out var appliers) && appliers.Count > 0)
+        if (cardSource != null)
         {
-            int share = total / appliers.Count;
-            int remainder = total % appliers.Count;
+            try { return cardSource.Title; }
+            catch { return cardSource.GetType().Name; }
+        }
+        if (CurrentDamageSource != null) return CurrentDamageSource;
+        if (dealer != null)
+        {
+            try
+            {
+                if (dealer.Monster != null) return dealer.Monster.Title.GetFormattedText();
+                if (dealer.IsPlayer) return dealer.Player?.Character?.Title.GetFormattedText() ?? "Player";
+            }
+            catch { }
+        }
+        return "Other";
+    }
+
+    private static string ResolveHpLostSource(Creature? dealer, CardModel? cardSource)
+    {
+        if (dealer?.Monster != null)
+        {
+            try { return dealer.Monster.Title.GetFormattedText(); }
+            catch { return dealer.Monster.GetType().Name; }
+        }
+        if (dealer != null && dealer.IsPlayer)
+        {
+            try { return dealer.Player?.Character?.Title.GetFormattedText() ?? "Self"; }
+            catch { return "Self"; }
+        }
+        if (cardSource != null)
+        {
+            try { return cardSource.Title; }
+            catch { return cardSource.GetType().Name; }
+        }
+        return "Other";
+    }
+
+    private static void AttributeNullDealerDamage(Creature receiver, int total, string? overrideSource = null)
+    {
+        if (_debuffSources.TryGetValue(receiver, out var sources) && sources.Count > 0)
+        {
+            int share = total / sources.Count;
+            int remainder = total % sources.Count;
             int i = 0;
-            foreach (var netId in appliers)
+            foreach (var (netId, powerName) in sources)
             {
                 int amt = share + (i < remainder ? 1 : 0);
-                AddAll(netId, s => s.DamageDealt += amt);
+                AddDamage(netId, amt, overrideSource ?? powerName);
                 i++;
             }
         }
         else
         {
-            AddAll(UnattributedId, s => s.DamageDealt += total);
+            AddDamage(UnattributedId, total, overrideSource ?? "Other");
         }
     }
 
@@ -238,14 +301,64 @@ internal static class StatsTrackerData
     {
         if (b.Amount <= 0) return;
         if (b.Receiver != null && b.Receiver.IsPlayer && b.Receiver.Player != null)
-            AddAll(b.Receiver.Player.NetId, s => s.BlockGained += b.Amount);
+        {
+            string source;
+            if (b.CardPlay?.Card != null)
+            {
+                try { source = b.CardPlay.Card.Title; }
+                catch { source = b.CardPlay.Card.GetType().Name; }
+            }
+            else
+            {
+                source = CurrentBlockSource ?? "Other";
+            }
+            AddBlock(b.Receiver.Player.NetId, b.Amount, source);
+        }
     }
 
-    private static void AddAll(ulong netId, Action<DmPlayerStats> apply)
+    private static void AddDamage(ulong netId, int amount, string source)
     {
-        apply(Combat.Get(netId));
-        apply(Act.Get(netId));
-        apply(Run.Get(netId));
+        foreach (var scope in new[] { Combat, Act, Run })
+        {
+            var s = scope.Get(netId);
+            s.DamageDealt += amount;
+            s.DamageBySource[source] = s.DamageBySource.GetValueOrDefault(source) + amount;
+        }
+    }
+
+    private static void AddBlock(ulong netId, int amount, string source)
+    {
+        foreach (var scope in new[] { Combat, Act, Run })
+        {
+            var s = scope.Get(netId);
+            s.BlockGained += amount;
+            s.BlockBySource[source] = s.BlockBySource.GetValueOrDefault(source) + amount;
+        }
+    }
+
+    private static void AddHpLost(ulong netId, int amount, string source)
+    {
+        foreach (var scope in new[] { Combat, Act, Run })
+        {
+            var s = scope.Get(netId);
+            s.HpLost += amount;
+            s.HpLostBySource[source] = s.HpLostBySource.GetValueOrDefault(source) + amount;
+        }
+    }
+
+    // DoomPower.DoomKill bypasses CreatureCmd.Damage entirely — it calls
+    // CreatureCmd.Kill which zeros HP via LoseHpInternal without creating a
+    // DamageReceivedEntry. Credit the creature's remaining HP as damage
+    // dealt to whoever applied Doom, using the same _debuffDealers map.
+    internal static void ProcessDoomKill(IReadOnlyList<Creature> creatures)
+    {
+        foreach (var creature in creatures)
+        {
+            int hp = creature.CurrentHp;
+            if (hp <= 0 || creature.Side != CombatSide.Enemy) continue;
+            AttributeNullDealerDamage(creature, hp, "Doom");
+        }
+        Updated?.Invoke();
     }
 
     // Supplements CombatHistory tailing for the killing blow on the last
@@ -271,9 +384,12 @@ internal static class StatsTrackerData
                           : dealer.IsPet ? dealer.PetOwner
                           : null;
                 if (owner != null)
-                    AddAll(owner.NetId, s => s.DamageDealt += hpRemoved);
+                {
+                    string source = ResolveDamageSource(CurrentCardSource, dealer);
+                    AddDamage(owner.NetId, hpRemoved, source);
+                }
                 else
-                    AddAll(UnattributedId, s => s.DamageDealt += hpRemoved);
+                    AddDamage(UnattributedId, hpRemoved, "Other");
             }
             else
             {
@@ -282,7 +398,10 @@ internal static class StatsTrackerData
         }
 
         if (receiver.IsPlayer && receiver.Player != null)
-            AddAll(receiver.Player.NetId, s => s.HpLost += hpRemoved);
+        {
+            string hpSource = ResolveHpLostSource(CurrentDealer, CurrentCardSource);
+            AddHpLost(receiver.Player.NetId, hpRemoved, hpSource);
+        }
 
         Updated?.Invoke();
     }
@@ -305,7 +424,11 @@ public static class PatchStatsTrackerWriteSidecar
 public static class PatchDamageDealer
 {
     [HarmonyPrefix]
-    public static void Prefix(Creature? dealer) => StatsTrackerData.CurrentDealer = dealer;
+    public static void Prefix(Creature? dealer, CardModel? cardSource)
+    {
+        StatsTrackerData.CurrentDealer = dealer;
+        StatsTrackerData.CurrentCardSource = cardSource;
+    }
 }
 
 [HarmonyPatch(typeof(Creature), nameof(Creature.LoseHpInternal))]
@@ -318,6 +441,85 @@ public static class PatchLoseHpInternal
         try { StatsTrackerData.ProcessDirectHpLoss(__instance, __result); }
         catch (Exception e) { MainFile.Logger.Warn($"StatsTracker LoseHp: {e.Message}"); }
     }
+}
+
+// Doom kills bypass CreatureCmd.Damage entirely — capture remaining HP
+// before DoomKill zeros it via CreatureCmd.Kill.
+[HarmonyPatch(typeof(DoomPower), nameof(DoomPower.DoomKill))]
+public static class PatchDoomKill
+{
+    [HarmonyPrefix]
+    public static void Prefix(IReadOnlyList<Creature> creatures)
+    {
+        if (!StatsTrackerConfig.Instance.Enabled) return;
+        try { StatsTrackerData.ProcessDoomKill(creatures); }
+        catch (Exception e) { MainFile.Logger.Warn($"StatsTracker DoomKill: {e.Message}"); }
+    }
+}
+
+// FrostOrb.Passive/Evoke call GainBlock with null CardPlay — set a flag
+// so ProcessBlock can label the source as "Frost Orb" instead of "Other".
+[HarmonyPatch(typeof(FrostOrb), nameof(FrostOrb.Passive))]
+public static class PatchFrostOrbPassive
+{
+    [HarmonyPrefix]
+    public static void Prefix() => StatsTrackerData.CurrentBlockSource = "Frost Orb";
+    [HarmonyPostfix]
+    public static void Postfix() => StatsTrackerData.CurrentBlockSource = null;
+}
+
+[HarmonyPatch(typeof(FrostOrb), nameof(FrostOrb.Evoke))]
+public static class PatchFrostOrbEvoke
+{
+    [HarmonyPrefix]
+    public static void Prefix() => StatsTrackerData.CurrentBlockSource = "Frost Orb";
+    [HarmonyPostfix]
+    public static void Postfix() => StatsTrackerData.CurrentBlockSource = null;
+}
+
+[HarmonyPatch(typeof(LightningOrb), nameof(LightningOrb.Passive))]
+public static class PatchLightningOrbPassive
+{
+    [HarmonyPrefix]
+    public static void Prefix() => StatsTrackerData.CurrentDamageSource = "Lightning Orb";
+    [HarmonyPostfix]
+    public static void Postfix() => StatsTrackerData.CurrentDamageSource = null;
+}
+
+[HarmonyPatch(typeof(LightningOrb), nameof(LightningOrb.Evoke))]
+public static class PatchLightningOrbEvoke
+{
+    [HarmonyPrefix]
+    public static void Prefix() => StatsTrackerData.CurrentDamageSource = "Lightning Orb";
+    [HarmonyPostfix]
+    public static void Postfix() => StatsTrackerData.CurrentDamageSource = null;
+}
+
+[HarmonyPatch(typeof(DarkOrb), nameof(DarkOrb.Evoke))]
+public static class PatchDarkOrbEvoke
+{
+    [HarmonyPrefix]
+    public static void Prefix() => StatsTrackerData.CurrentDamageSource = "Dark Orb";
+    [HarmonyPostfix]
+    public static void Postfix() => StatsTrackerData.CurrentDamageSource = null;
+}
+
+[HarmonyPatch(typeof(GlassOrb), nameof(GlassOrb.Passive))]
+public static class PatchGlassOrbPassive
+{
+    [HarmonyPrefix]
+    public static void Prefix() => StatsTrackerData.CurrentDamageSource = "Glass Orb";
+    [HarmonyPostfix]
+    public static void Postfix() => StatsTrackerData.CurrentDamageSource = null;
+}
+
+[HarmonyPatch(typeof(GlassOrb), nameof(GlassOrb.Evoke))]
+public static class PatchGlassOrbEvoke
+{
+    [HarmonyPrefix]
+    public static void Prefix() => StatsTrackerData.CurrentDamageSource = "Glass Orb";
+    [HarmonyPostfix]
+    public static void Postfix() => StatsTrackerData.CurrentDamageSource = null;
 }
 
 internal sealed class DmSidecarPlayer
