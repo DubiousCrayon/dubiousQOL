@@ -219,6 +219,7 @@ internal static class StatsTrackerData
         Combat.Reset();
         _processedCount = 0;
         _debuffSources.Clear();
+        SourceIconResolver.ClearCache();
         if (!_hookedHistory)
         {
             // History is a singleton property on CombatManager (constructed in its
@@ -245,6 +246,7 @@ internal static class StatsTrackerData
         Act.Reset();
         Combat.Reset();
         _processedCount = 0;
+        SourceIconResolver.ClearCache();
         Updated?.Invoke();
     }
 

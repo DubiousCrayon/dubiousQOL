@@ -756,20 +756,7 @@ internal sealed partial class StatsTrackerOverlay : Control
         return row;
     }
 
-    // Distinct hues for breakdown rows so adjacent bars are easy to tell apart.
-    private static readonly Color[] BreakdownBarColors =
-    {
-        new(0.85f, 0.35f, 0.35f), // red
-        new(0.35f, 0.65f, 0.90f), // blue
-        new(0.45f, 0.80f, 0.45f), // green
-        new(0.90f, 0.70f, 0.30f), // amber
-        new(0.70f, 0.45f, 0.85f), // purple
-        new(0.30f, 0.80f, 0.75f), // teal
-        new(0.90f, 0.50f, 0.65f), // pink
-        new(0.60f, 0.75f, 0.35f), // lime
-        new(0.85f, 0.55f, 0.30f), // orange
-        new(0.55f, 0.55f, 0.80f), // slate
-    };
+    private const float BreakdownIconSize = 16f;
 
     // Anchor bar saved by ShowBreakdown so _Process can reposition the popup
     // to track the mouse while hovering.
@@ -792,11 +779,12 @@ internal sealed partial class StatsTrackerOverlay : Control
         long total = breakdown.Values.Sum(v => Math.Max(0, v));
         if (total <= 0) return;
 
-        const float popupW = 240f;
+        const float popupW = 280f;
         const float rowH = 20f;
         const float headerH = 24f;
         const float padX = 8f;
         const float padY = 6f;
+        const float iconColW = BreakdownIconSize + 4f; // icon + gap
         float popupH = headerH + sorted.Count * rowH + padY * 2;
 
         var popup = new Control
@@ -824,26 +812,61 @@ internal sealed partial class StatsTrackerOverlay : Control
         header.AddThemeColorOverride("font_color", accentColor);
         popup.AddChild(header);
 
-        // Each row: backdrop bar (full width), source bar (proportional to
-        // total, not top value — so 73% source fills 73% of the bar), text
-        // overlay with source name left and value+% right.
+        // Each row: icon (optional) + backdrop bar + source bar (proportional
+        // to total) + text overlay with source name left, value+% right.
         float contentX = padX;
-        float contentW = popupW - padX * 2;
+        float barX = contentX + iconColW;
+        float barW = popupW - padX * 2 - iconColW;
         float y = padY + headerH;
-        int colorIdx = 0;
         foreach (var kv in sorted)
         {
+            var resolved = SourceIconResolver.Resolve(kv.Key);
             float displayVal = _perTurn ? (float)kv.Value / turns : kv.Value;
             float pct = total > 0 ? (float)kv.Value / total * 100f : 0f;
             float barPct = total > 0 ? (float)kv.Value / total : 0f;
-            var barColor = BreakdownBarColors[colorIdx % BreakdownBarColors.Length];
+            var barColor = resolved.BarColor;
+
+            // Icon column — wrap in a clipping container so overflow from
+            // scaled-up padded icons gets cropped. Icons with built-in
+            // transparent padding (atlas sprites, category icons) use
+            // IconScale > 1 to render the TextureRect larger than the clip
+            // box, making the visible content fill the space.
+            if (resolved.Icon != null)
+            {
+                var iconClip = new Control
+                {
+                    Position = new Vector2(contentX, y + (rowH - BreakdownIconSize) * 0.5f),
+                    Size = new Vector2(BreakdownIconSize, BreakdownIconSize),
+                    ClipContents = true,
+                    MouseFilter = MouseFilterEnum.Ignore,
+                };
+                var iconRect = new TextureRect
+                {
+                    Texture = resolved.Icon,
+                    ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize,
+                    StretchMode = TextureRect.StretchModeEnum.KeepAspectCentered,
+                    MouseFilter = MouseFilterEnum.Ignore,
+                };
+                iconRect.SetAnchorsPreset(LayoutPreset.FullRect);
+                float scale = resolved.IconScale > 0f ? resolved.IconScale : 1f;
+                if (scale > 1f)
+                {
+                    float grow = BreakdownIconSize * (scale - 1f) * 0.5f;
+                    iconRect.OffsetLeft = -grow;
+                    iconRect.OffsetTop = -grow;
+                    iconRect.OffsetRight = grow;
+                    iconRect.OffsetBottom = grow;
+                }
+                iconClip.AddChild(iconRect);
+                popup.AddChild(iconClip);
+            }
 
             // Layer 1: backdrop bar (full row width)
             var backdrop = new ColorRect
             {
                 Color = BarBgColor,
-                Position = new Vector2(contentX, y),
-                Size = new Vector2(contentW, rowH),
+                Position = new Vector2(barX, y),
+                Size = new Vector2(barW, rowH),
                 MouseFilter = MouseFilterEnum.Ignore,
             };
             popup.AddChild(backdrop);
@@ -854,8 +877,8 @@ internal sealed partial class StatsTrackerOverlay : Control
                 var barFill = new ColorRect
                 {
                     Color = new Color(barColor.R, barColor.G, barColor.B, 0.55f),
-                    Position = new Vector2(contentX, y),
-                    Size = new Vector2(contentW * barPct, rowH),
+                    Position = new Vector2(barX, y),
+                    Size = new Vector2(barW * barPct, rowH),
                     MouseFilter = MouseFilterEnum.Ignore,
                 };
                 popup.AddChild(barFill);
@@ -870,8 +893,8 @@ internal sealed partial class StatsTrackerOverlay : Control
                 ClipText = true,
                 MouseFilter = MouseFilterEnum.Ignore,
             };
-            nameLabel.Position = new Vector2(contentX + 4, y);
-            nameLabel.Size = new Vector2(contentW * 0.55f, rowH);
+            nameLabel.Position = new Vector2(barX + 4, y);
+            nameLabel.Size = new Vector2(barW * 0.55f, rowH);
             nameLabel.AddThemeFontSizeOverride("font_size", 11);
             nameLabel.AddThemeColorOverride("font_color", new Color(0.95f, 0.95f, 0.95f));
             nameLabel.AddThemeColorOverride("font_shadow_color", new Color(0f, 0f, 0f, 0.9f));
@@ -888,8 +911,8 @@ internal sealed partial class StatsTrackerOverlay : Control
                 VerticalAlignment = VerticalAlignment.Center,
                 MouseFilter = MouseFilterEnum.Ignore,
             };
-            valLabel.Position = new Vector2(contentX, y);
-            valLabel.Size = new Vector2(contentW - 4, rowH);
+            valLabel.Position = new Vector2(barX, y);
+            valLabel.Size = new Vector2(barW - 4, rowH);
             valLabel.AddThemeFontSizeOverride("font_size", 11);
             valLabel.AddThemeColorOverride("font_color", new Color(0.92f, 0.92f, 0.95f));
             valLabel.AddThemeColorOverride("font_shadow_color", new Color(0f, 0f, 0f, 0.9f));
@@ -899,7 +922,6 @@ internal sealed partial class StatsTrackerOverlay : Control
             popup.AddChild(valLabel);
 
             y += rowH;
-            colorIdx++;
         }
 
         _breakdownPopup = popup;
