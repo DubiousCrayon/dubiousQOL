@@ -356,7 +356,7 @@ internal static class DubiousConfigModal
         // Wrap in a MarginContainer so content stays inset from scroll edges
         var margin = new MarginContainer();
         margin.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
-        margin.AddThemeConstantOverride("margin_right", 48);
+        margin.AddThemeConstantOverride("margin_right", 0);
 
         var vbox = new VBoxContainer();
         vbox.AddThemeConstantOverride("separation", 0);
@@ -435,6 +435,7 @@ internal static class DubiousConfigModal
         {
             if (restoreBtn is Button plainBtn) plainBtn.Disabled = true;
             else restoreBtn.CallDeferred(NClickableControl.MethodName.Disable);
+            restoreBtn.Modulate = new Color(1f, 1f, 1f, 0.35f);
         }
         else
         {
@@ -678,9 +679,9 @@ internal static class DubiousConfigModal
 
         var container = new HBoxContainer { Name = "SliderContainer" };
         container.AddThemeConstantOverride("separation", 8);
-        container.SizeFlagsHorizontal = Control.SizeFlags.ShrinkEnd;
-        container.CustomMinimumSize = new Vector2(280, 64);
-        container.ClipContents = true;
+        container.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
+        container.SizeFlagsStretchRatio = 0.5f;
+        container.CustomMinimumSize = new Vector2(0, 64);
 
         var slider = new HSlider
         {
@@ -707,36 +708,50 @@ internal static class DubiousConfigModal
         ApplyGameFont(input, 24);
         container.AddChild(input);
 
+        // Right padding so the input doesn't sit flush against the divider edge
+        var spacer = new Control { CustomMinimumSize = new Vector2(24, 0), MouseFilter = Control.MouseFilterEnum.Ignore };
+        container.AddChild(spacer);
+
+        bool updatingFromInput = false;
+
         slider.ValueChanged += v =>
         {
             if (isInt)
-            {
                 entry.Value = (int)v;
-                input.Text = ((int)v).ToString();
-            }
             else
-            {
                 entry.Value = (float)v;
-                input.Text = ((float)v).ToString("F0");
-            }
+            if (!updatingFromInput)
+                input.Text = isInt ? ((int)v).ToString() : ((float)v).ToString("F0");
             config.Save();
         };
 
-        input.TextSubmitted += text =>
+        input.TextChanged += text =>
         {
             if (double.TryParse(text, out var v))
             {
                 v = Mathf.Clamp(v, min, max);
+                updatingFromInput = true;
                 slider.Value = v;
+                updatingFromInput = false;
+            }
+        };
+
+        // Correct the displayed text to the clamped value on commit
+        void ClampInputText()
+        {
+            if (double.TryParse(input.Text, out var v))
+            {
+                v = Mathf.Clamp(v, min, max);
+                input.Text = isInt ? ((int)v).ToString() : ((float)v).ToString("F0");
             }
             else
             {
-                input.Text = isInt
-                    ? ((int)entry.Value).ToString()
-                    : ((float)entry.Value).ToString("F0");
+                input.Text = isInt ? ((int)entry.Value).ToString() : ((float)entry.Value).ToString("F0");
             }
-            input.ReleaseFocus();
-        };
+        }
+
+        input.TextSubmitted += _ => { ClampInputText(); input.ReleaseFocus(); };
+        input.FocusExited += ClampInputText;
 
         return container;
     }

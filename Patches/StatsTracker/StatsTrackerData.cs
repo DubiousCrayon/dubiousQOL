@@ -9,12 +9,16 @@ using HarmonyLib;
 using MegaCrit.Sts2.Core.Combat;
 using MegaCrit.Sts2.Core.Combat.History;
 using MegaCrit.Sts2.Core.Combat.History.Entries;
+using MegaCrit.Sts2.Core.Commands;
 using MegaCrit.Sts2.Core.Entities.Creatures;
+using MegaCrit.Sts2.Core.GameActions.Multiplayer;
+using MegaCrit.Sts2.Core.Models;
 using MegaCrit.Sts2.Core.Models.Powers;
 using MegaCrit.Sts2.Core.Platform;
 using MegaCrit.Sts2.Core.Runs;
 using MegaCrit.Sts2.Core.Saves;
 using MegaCrit.Sts2.Core.Saves.Managers;
+using MegaCrit.Sts2.Core.ValueProps;
 
 namespace dubiousQOL.Patches;
 
@@ -33,7 +37,7 @@ internal sealed class DmPlayerStats
 {
     public long DamageDealt;
     public long BlockGained;
-    public long DamageTaken;
+    public long HpLost;
 }
 
 internal sealed class DmScopeStats
@@ -63,6 +67,11 @@ internal static class StatsTrackerData
     public static event Action? Updated;
 
     internal const ulong UnattributedId = 0;
+
+    // Set by CreatureCmd.Damage prefix so the LoseHpInternal postfix can
+    // attribute the killing blow when CombatHistory.DamageReceived is blocked
+    // by the IsEnding guard.
+    internal static Creature? CurrentDealer;
 
     private static bool _installed;
     private static bool _hookedHistory;
@@ -179,8 +188,10 @@ internal static class StatsTrackerData
 
     private static void ProcessDamage(DamageReceivedEntry d)
     {
-        var total = d.Result.TotalDamage;
-        if (total <= 0) return;
+        // UnblockedDamage = actual HP removed (excludes overkill and blocked damage).
+        // A 40-damage hit on a 10 HP enemy records 10, not 40.
+        var hpRemoved = d.Result.UnblockedDamage;
+        if (hpRemoved <= 0) return;
 
         if (d.Receiver != null && d.Receiver.Side == CombatSide.Enemy)
         {
@@ -191,16 +202,16 @@ internal static class StatsTrackerData
                           : dealer.IsPet ? dealer.PetOwner
                           : null;
                 if (owner != null)
-                    AddAll(owner.NetId, s => s.DamageDealt += total);
+                    AddAll(owner.NetId, s => s.DamageDealt += hpRemoved);
             }
             else
             {
-                AttributeNullDealerDamage(d.Receiver, total);
+                AttributeNullDealerDamage(d.Receiver, hpRemoved);
             }
         }
 
         if (d.Receiver != null && d.Receiver.IsPlayer && d.Receiver.Player != null)
-            AddAll(d.Receiver.Player.NetId, s => s.DamageTaken += total);
+            AddAll(d.Receiver.Player.NetId, s => s.HpLost += hpRemoved);
     }
 
     private static void AttributeNullDealerDamage(Creature receiver, int total)
@@ -236,6 +247,45 @@ internal static class StatsTrackerData
         apply(Act.Get(netId));
         apply(Run.Get(netId));
     }
+
+    // Supplements CombatHistory tailing for the killing blow on the last
+    // primary enemy. CombatHistory.DamageReceived is guarded by
+    // `IsInProgress && !IsEnding`, and IsEnding flips to true the instant
+    // LoseHpInternal zeroes the last primary enemy's HP — so the final
+    // DamageReceivedEntry is never created and our tailing never sees it.
+    // This method is called from a LoseHpInternal postfix only when that
+    // guard would have blocked the entry.
+    internal static void ProcessDirectHpLoss(Creature receiver, DamageResult result)
+    {
+        if (!CombatManager.Instance.IsInProgress || !CombatManager.Instance.IsEnding) return;
+
+        var hpRemoved = result.UnblockedDamage;
+        if (hpRemoved <= 0) return;
+
+        if (receiver.Side == CombatSide.Enemy)
+        {
+            var dealer = CurrentDealer;
+            if (dealer != null)
+            {
+                var owner = dealer.IsPlayer ? dealer.Player
+                          : dealer.IsPet ? dealer.PetOwner
+                          : null;
+                if (owner != null)
+                    AddAll(owner.NetId, s => s.DamageDealt += hpRemoved);
+                else
+                    AddAll(UnattributedId, s => s.DamageDealt += hpRemoved);
+            }
+            else
+            {
+                AttributeNullDealerDamage(receiver, hpRemoved);
+            }
+        }
+
+        if (receiver.IsPlayer && receiver.Player != null)
+            AddAll(receiver.Player.NetId, s => s.HpLost += hpRemoved);
+
+        Updated?.Invoke();
+    }
 }
 
 [HarmonyPatch(typeof(RunHistoryUtilities), nameof(RunHistoryUtilities.CreateRunHistoryEntry))]
@@ -250,13 +300,33 @@ public static class PatchStatsTrackerWriteSidecar
     }
 }
 
+[HarmonyPatch(typeof(CreatureCmd), nameof(CreatureCmd.Damage),
+    new[] { typeof(PlayerChoiceContext), typeof(IEnumerable<Creature>), typeof(decimal), typeof(ValueProp), typeof(Creature), typeof(CardModel) })]
+public static class PatchDamageDealer
+{
+    [HarmonyPrefix]
+    public static void Prefix(Creature? dealer) => StatsTrackerData.CurrentDealer = dealer;
+}
+
+[HarmonyPatch(typeof(Creature), nameof(Creature.LoseHpInternal))]
+public static class PatchLoseHpInternal
+{
+    [HarmonyPostfix]
+    public static void Postfix(Creature __instance, DamageResult __result)
+    {
+        if (!StatsTrackerConfig.Instance.Enabled) return;
+        try { StatsTrackerData.ProcessDirectHpLoss(__instance, __result); }
+        catch (Exception e) { MainFile.Logger.Warn($"StatsTracker LoseHp: {e.Message}"); }
+    }
+}
+
 internal sealed class DmSidecarPlayer
 {
     [JsonPropertyName("netId")] public string NetId { get; set; } = "";
     [JsonPropertyName("character")] public string? Character { get; set; }
     [JsonPropertyName("damageDealt")] public long DamageDealt { get; set; }
     [JsonPropertyName("blockGained")] public long BlockGained { get; set; }
-    [JsonPropertyName("damageTaken")] public long DamageTaken { get; set; }
+    [JsonPropertyName("hpLost")] public long HpLost { get; set; }
 }
 
 internal sealed class DmSidecar
@@ -313,7 +383,7 @@ internal static class StatsTrackerIO
                 Character = character,
                 DamageDealt = kv.Value.DamageDealt,
                 BlockGained = kv.Value.BlockGained,
-                DamageTaken = kv.Value.DamageTaken,
+                HpLost = kv.Value.HpLost,
             });
         }
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);

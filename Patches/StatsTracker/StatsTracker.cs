@@ -11,7 +11,7 @@ using MegaCrit.Sts2.Core.Runs;
 
 namespace dubiousQOL.Patches;
 
-internal enum DmMetric { DamageDealt, BlockGained, DamageTaken }
+internal enum DmMetric { DamageDealt, BlockGained, HpLost }
 internal enum DmScope { Combat, Act, Run }
 
 [HarmonyPatch]
@@ -78,19 +78,19 @@ internal sealed partial class StatsTrackerOverlay : Control
     private const float Pad = 1f;
     private const float PadLarge = 3f;
 
-    private static readonly string[] MetricNames = { "Damage Dealt", "Block Gained", "Damage Taken" };
+    private static readonly string[] MetricNames = { "Damage Dealt", "Block Gained", "HP Lost" };
     private static readonly string[] ScopeNames = { "Combat", "Act", "Run" };
 
     private static readonly Color BgColor = new(0.06f, 0.06f, 0.10f, 0.90f);
     private static readonly Color TitleColor = new(0.10f, 0.10f, 0.16f, 0.95f);
     private static readonly Color BorderColor = new(0.3f, 0.3f, 0.4f, 0.5f);
     private static readonly Color AccentColor = new(0.9f, 0.85f, 0.6f);
-    // Indexed by DmMetric: DamageDealt, BlockGained, DamageTaken.
+    // Indexed by DmMetric: DamageDealt, BlockGained, HpLost.
     private static readonly Color[] MetricAccentColors =
     {
-        new(0.82f, 0.30f, 0.32f), // dark red — aggressive "out"
-        new(0.55f, 0.80f, 0.95f), // ice blue — block color
-        new(0.80f, 0.60f, 0.75f), // dusty mauve — "taken"
+        new(0.82f, 0.30f, 0.32f), // dark red — damage dealt
+        new(0.55f, 0.80f, 0.95f), // ice blue — block
+        new(0.80f, 0.60f, 0.75f), // dusty mauve — hp lost
     };
     private static readonly Color AggAccentColor = new(0.95f, 0.65f, 0.35f);
     private static readonly Color SeparatorColor = new(0.85f, 0.85f, 0.9f);
@@ -100,7 +100,7 @@ internal sealed partial class StatsTrackerOverlay : Control
 
     private DmMetric _metric = DmMetric.DamageDealt;
     private DmScope _scope = DmScope.Combat;
-    private bool _perTurn = true;
+    private bool _perTurn = false;
     private bool _filtersCollapsed = true;
 
     // Split "is it Visible?" into two sources: _userVisible reflects F8/close-button
@@ -616,7 +616,7 @@ internal sealed partial class StatsTrackerOverlay : Control
         {
             DmMetric.DamageDealt => stats.DamageDealt,
             DmMetric.BlockGained => stats.BlockGained,
-            DmMetric.DamageTaken => stats.DamageTaken,
+            DmMetric.HpLost => stats.HpLost,
             _ => 0,
         };
     }

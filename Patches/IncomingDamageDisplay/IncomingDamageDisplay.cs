@@ -171,19 +171,10 @@ public static class PatchIncomingDamageDisplay
             return;
         }
 
-        int enemyDamage = 0;
-        var targets = new[] { player };
-        foreach (var enemy in combatState.GetCreaturesOnSide(CombatSide.Enemy))
-        {
-            if (!enemy.IsAlive) continue;
-            var monster = enemy.Monster;
-            if (monster == null) continue;
-            foreach (var intent in monster.NextMove.Intents)
-            {
-                if (intent is AttackIntent attack)
-                    enemyDamage += attack.GetTotalDamage(targets, enemy);
-            }
-        }
+        // Buffer absorbs one damage instance per stack. Hand damage cards
+        // resolve at end of turn before enemy attacks, so they consume
+        // Buffer stacks first.
+        int bufferStacks = player.GetPowerAmount<BufferPower>();
 
         // Cards in hand that trigger at end of turn split into two buckets:
         // block-affected damage (Burn/Decay/Infection/Toxic) and unblockable
@@ -211,8 +202,38 @@ public static class PatchIncomingDamageDisplay
                     case Decay:
                     case Infection:
                     case Toxic:
-                        handDamage += ReadPreviewDamage(card, player);
+                        if (bufferStacks > 0)
+                            bufferStacks--;
+                        else
+                            handDamage += ReadPreviewDamage(card, player);
                         break;
+                }
+            }
+        }
+
+        // Enemy attack hits — each repeat is a separate instance that
+        // Buffer can absorb. Remaining bufferStacks carry over from hand
+        // damage cards above.
+        int enemyDamage = 0;
+        var targets = new[] { player };
+        foreach (var enemy in combatState.GetCreaturesOnSide(CombatSide.Enemy))
+        {
+            if (!enemy.IsAlive) continue;
+            var monster = enemy.Monster;
+            if (monster == null) continue;
+            foreach (var intent in monster.NextMove.Intents)
+            {
+                if (intent is AttackIntent attack)
+                {
+                    int singleDmg = attack.GetSingleDamage(targets, enemy);
+                    int repeats = attack.Repeats;
+                    for (int i = 0; i < repeats; i++)
+                    {
+                        if (bufferStacks > 0)
+                            bufferStacks--;
+                        else
+                            enemyDamage += singleDmg;
+                    }
                 }
             }
         }
