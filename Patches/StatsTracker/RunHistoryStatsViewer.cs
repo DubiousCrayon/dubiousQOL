@@ -12,6 +12,8 @@ using MegaCrit.Sts2.Core.Nodes.GodotExtensions;
 using MegaCrit.Sts2.Core.Nodes.Screens.RunHistoryScreen;
 using MegaCrit.Sts2.Core.Nodes.Screens.ScreenContext;
 
+using dubiousQOL.UI;
+
 namespace dubiousQOL.Patches;
 
 internal static class RunHistoryStatsViewerModal

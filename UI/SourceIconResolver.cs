@@ -7,7 +7,7 @@ using MegaCrit.Sts2.Core.Models.Orbs;
 using MegaCrit.Sts2.Core.Models.Powers;
 using MegaCrit.Sts2.Core.Rooms;
 
-namespace dubiousQOL.Patches;
+namespace dubiousQOL.UI;
 
 internal enum SourceKind
 {
