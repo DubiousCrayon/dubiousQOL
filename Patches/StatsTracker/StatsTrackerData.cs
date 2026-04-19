@@ -454,15 +454,18 @@ internal static class StatsTrackerData
             try { return dealer.Monster.Title.GetFormattedText(); }
             catch { return dealer.Monster.GetType().Name; }
         }
-        if (dealer != null && dealer.IsPlayer)
-        {
-            try { return dealer.Player?.Character?.Title.GetFormattedText() ?? "Self"; }
-            catch { return "Self"; }
-        }
+        // For self-damage (player hitting themselves), prefer the specific source
+        // (card, relic, power) over the generic character name.
         if (cardSource != null)
         {
             try { return cardSource.Title; }
             catch { return cardSource.GetType().Name; }
+        }
+        if (PendingDamageSource != null) return PendingDamageSource;
+        if (dealer != null && dealer.IsPlayer)
+        {
+            try { return dealer.Player?.Character?.Title.GetFormattedText() ?? "Self"; }
+            catch { return "Self"; }
         }
         return "Other";
     }
