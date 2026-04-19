@@ -50,7 +50,6 @@ internal partial class RunHistoryStatsViewer : Control, IScreenContext
     private ScrollContainer _scroll = null!;
     private readonly List<Control> _pages = new();
     private readonly List<Node> _tabs = new();
-    private int _activeTab;
 
     public RunHistoryStatsViewer(DmSidecar sidecar)
     {
@@ -120,16 +119,6 @@ internal partial class RunHistoryStatsViewer : Control, IScreenContext
         AddChild(tabBar);
         _tabs.AddRange(tabs);
 
-        // Wire click handlers.
-        for (int i = 0; i < _tabs.Count; i++)
-        {
-            int capturedIdx = i;
-            if (_tabs[i] is NClickableControl clickTab)
-                clickTab.Released += _ => SwitchTab(capturedIdx);
-            else
-                _tabs[i].Connect("pressed", Callable.From(() => SwitchTab(capturedIdx)));
-        }
-
         // Scrollable content area.
         _scroll = new ScrollContainer
         {
@@ -147,26 +136,10 @@ internal partial class RunHistoryStatsViewer : Control, IScreenContext
         foreach (var actIdx in _actIndices)
             _pages.Add(BuildActPage(actIdx));
 
-        // Show the first page.
+        // Show the first page and wire tab switching.
         if (_pages.Count > 0)
             _scroll.AddChild(_pages[0]);
-        _activeTab = 0;
-    }
-
-    private void SwitchTab(int idx)
-    {
-        if (idx == _activeTab || idx < 0 || idx >= _pages.Count) return;
-        _scroll.RemoveChild(_pages[_activeTab]);
-        _scroll.AddChild(_pages[idx]);
-        _scroll.ScrollVertical = 0;
-
-        // Update tab visuals.
-        if (_activeTab < _tabs.Count)
-            _tabs[_activeTab].Call("Deselect");
-        if (idx < _tabs.Count)
-            _tabs[idx].Call("Select");
-
-        _activeTab = idx;
+        TabHelper.WireTabSwitching(_tabs, _pages, _scroll);
     }
 
     // ─────────────────────────────────────────────────────────

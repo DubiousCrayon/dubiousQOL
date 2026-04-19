@@ -10,6 +10,8 @@ using MegaCrit.Sts2.Core.Models;
 using MegaCrit.Sts2.Core.Nodes.CommonUi;
 using MegaCrit.Sts2.Core.Nodes.Screens;
 
+using dubiousQOL.Utilities;
+
 namespace dubiousQOL.Patches;
 
 /// <summary>
@@ -73,42 +75,13 @@ public static class DeckSearchRegistry
     }
 
     /// <summary>
-    /// Build the search bar by instantiating the card_library scene, plucking
-    /// %SearchBar, and freeing the rest. Reuses the compendium's exact visual/input scene.
+    /// Build the search bar by extracting NSearchBar from the card_library scene.
+    /// Reuses the compendium's exact visual/input scene.
     /// </summary>
     internal static NSearchBar? InstantiateSearchBar()
     {
-        try
-        {
-            var packed = ResourceLoader.Load<PackedScene>(
-                "res://scenes/screens/card_library/card_library.tscn", null, ResourceLoader.CacheMode.Reuse);
-            if (packed == null) return null;
-
-            var libRoot = packed.Instantiate<Node>(PackedScene.GenEditState.Disabled);
-            var searchBar = FindDescendant<NSearchBar>(libRoot);
-            if (searchBar != null)
-            {
-                searchBar.GetParent().RemoveChild(searchBar);
-            }
-            libRoot.QueueFree();
-            return searchBar;
-        }
-        catch (Exception e)
-        {
-            MainFile.Logger.Error($"Failed to extract SearchBar from card_library scene: {e.Message}");
-            return null;
-        }
-    }
-
-    private static T? FindDescendant<T>(Node root) where T : class
-    {
-        if (root is T match) return match;
-        foreach (Node child in root.GetChildren())
-        {
-            var found = FindDescendant<T>(child);
-            if (found != null) return found;
-        }
-        return null;
+        return NodeHelper.ExtractFromScene<NSearchBar>(
+            "res://scenes/screens/card_library/card_library.tscn");
     }
 }
 

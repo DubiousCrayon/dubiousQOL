@@ -5,11 +5,9 @@ using Godot;
 using HarmonyLib;
 using MegaCrit.Sts2.Core.Nodes.CommonUi;
 using MegaCrit.Sts2.Core.Nodes.GodotExtensions;
-using MegaCrit.Sts2.Core.Nodes.Multiplayer;
 using MegaCrit.Sts2.Core.Nodes.Screens.ScreenContext;
 using MegaCrit.Sts2.Core.Nodes.Screens.Settings;
 using MegaCrit.Sts2.Core.Runs;
-using MegaCrit.Sts2.addons.mega_text;
 
 using dubiousQOL.UI;
 using ModTheme = dubiousQOL.UI.Theme;
@@ -82,17 +80,12 @@ internal partial class DubiousConfigPanel : Control, IScreenContext
     private Control? _firstFocusable;
     public Control? DefaultFocusedControl => _firstFocusable;
 
-    public override void _UnhandledInput(InputEvent @event)
+    // _Input fires before NBackButton's hotkey handler in _UnhandledInput.
+    // Without this, pressing Escape while a confirmation popup is open
+    // would dismiss both the popup AND the modal in the same frame.
+    public override void _Input(InputEvent @event)
     {
-        if (@event is InputEventKey k && k.Pressed && !k.Echo && k.Keycode == Key.Escape)
-        {
-            var popup = FindChild("RestoreConfirmPopup", recursive: true, owned: false);
-            if (popup != null)
-                popup.QueueFree();
-            else
-                NModalContainer.Instance?.Clear();
-            GetViewport().SetInputAsHandled();
-        }
+        ModalHelper.TryDismissChildPopup(@event, this, "RestoreConfirmPopup");
     }
 }
 
@@ -193,24 +186,7 @@ internal static class DubiousConfigModal
             pages[i + 1] = BuildFeaturePage(features[i]);
 
         scroll.AddChild(pages[0]);
-        int activeTab = 0;
-
-        // ── Tab switching ───────────────────────────────────
-        for (int i = 0; i < allTabs.Count; i++)
-        {
-            int idx = i;
-            var capturedTabs = allTabs;
-            allTabs[i].Connect("Released", Callable.From<Variant>(_ =>
-            {
-                if (activeTab == idx) return;
-                scroll.RemoveChild(pages[activeTab]);
-                scroll.AddChild(pages[idx]);
-                scroll.ScrollVertical = 0;
-                capturedTabs[activeTab].Call("Deselect");
-                capturedTabs[idx].Call("Select");
-                activeTab = idx;
-            }));
-        }
+        TabHelper.WireTabSwitching(allTabs, pages, scroll);
 
         // ── Back button ─────────────────────────────────────
         ModalHelper.CreateBackButton(root, "DubiousConfigBackButton");
@@ -228,7 +204,7 @@ internal static class DubiousConfigModal
         vbox.AddThemeConstantOverride("separation", 0);
         vbox.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
 
-        var hint = CreateInfoLabel(
+        var hint = WidgetHelper.CreateInfoLabel(
             "Toggle features on or off. Click a feature tab for detailed settings.\n" +
             "Features marked with \u26A0 require a game restart to take effect.", 22);
         hint.HorizontalAlignment = HorizontalAlignment.Center;
@@ -238,21 +214,21 @@ internal static class DubiousConfigModal
         hint.AddThemeColorOverride("font_color", ModTheme.TextDim);
         vbox.AddChild(hint);
 
-        vbox.AddChild(CreateDivider());
+        vbox.AddChild(StyleHelper.CreateDivider(ModTheme.Divider));
 
         foreach (var config in ConfigRegistry.All)
         {
-            var row = CreateSettingsRow(
+            var row = WidgetHelper.CreateSettingsRow(
                 config.Name + (config.RequiresRestart ? "  \u26A0" : ""));
 
-            row.AddChild(CreateGameTickbox(config.Enabled, ticked =>
+            row.AddChild(WidgetHelper.CreateGameTickbox(config.Enabled, ticked =>
             {
                 config.Enabled = ticked;
                 config.Save();
             }));
 
             vbox.AddChild(row);
-            vbox.AddChild(CreateDivider());
+            vbox.AddChild(StyleHelper.CreateDivider(ModTheme.Divider));
         }
 
         return vbox;
@@ -274,7 +250,7 @@ internal static class DubiousConfigModal
         vbox.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
         margin.AddChild(vbox);
 
-        var desc = CreateInfoLabel(config.Description, 24);
+        var desc = WidgetHelper.CreateInfoLabel(config.Description, 24);
         desc.HorizontalAlignment = HorizontalAlignment.Center;
         desc.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         desc.AddThemeColorOverride("font_color", ModTheme.TextDim);
@@ -282,13 +258,13 @@ internal static class DubiousConfigModal
         desc.VerticalAlignment = VerticalAlignment.Center;
         vbox.AddChild(desc);
 
-        vbox.AddChild(CreateDivider());
+        vbox.AddChild(StyleHelper.CreateDivider(ModTheme.Divider));
 
         var entryControls = new List<(ConfigEntry entry, Control control)>();
 
         if (config.Entries.Count == 0)
         {
-            var empty = CreateInfoLabel("No additional settings for this feature.", 26);
+            var empty = WidgetHelper.CreateInfoLabel("No additional settings for this feature.", 26);
             empty.HorizontalAlignment = HorizontalAlignment.Center;
             empty.CustomMinimumSize = new Vector2(0, 80);
             empty.VerticalAlignment = VerticalAlignment.Center;
@@ -301,7 +277,7 @@ internal static class DubiousConfigModal
             {
                 var row = BuildEntryRow(config, entry);
                 vbox.AddChild(row);
-                vbox.AddChild(CreateDivider());
+                vbox.AddChild(StyleHelper.CreateDivider(ModTheme.Divider));
                 entryControls.Add((entry, row));
             }
         }
@@ -350,13 +326,13 @@ internal static class DubiousConfigModal
 
     private static Control BuildEntryRow(FeatureConfig config, ConfigEntry entry)
     {
-        var row = CreateSettingsRow(entry.Label);
+        var row = WidgetHelper.CreateSettingsRow(entry.Label);
 
         switch (entry.Type)
         {
             case ConfigEntryType.Bool:
             {
-                row.AddChild(CreateGameTickbox((bool)entry.Value, ticked =>
+                row.AddChild(WidgetHelper.CreateGameTickbox((bool)entry.Value, ticked =>
                 {
                     entry.Value = ticked;
                     config.Save();
@@ -411,54 +387,6 @@ internal static class DubiousConfigModal
         return row;
     }
 
-    // ─────────────────────────────────────────────────────────
-    //  Game-styled UI factory helpers
-    // ─────────────────────────────────────────────────────────
-
-    private static Control CloneSettingsLabel(string text) =>
-        WidgetHelper.CreateGameLabel(text);
-
-    /// <summary>
-    /// MegaLabel for informational text (hints, descriptions) that doesn't
-    /// need to match settings rows exactly.
-    /// </summary>
-    private static MegaLabel CreateInfoLabel(string text, int fontSize)
-    {
-        var regular = FontHelper.Load("kreon-regular");
-        var bold = FontHelper.Load("kreon-bold");
-        var theme = FontHelper.LoadTheme("res://themes/settings_screen_line_header.tres");
-
-        var label = new MegaLabel
-        {
-            Theme = theme,
-            AutoSizeEnabled = false,
-            MouseFilter = Control.MouseFilterEnum.Ignore,
-            FocusMode = Control.FocusModeEnum.None,
-            Text = text,
-        };
-        if (regular != null) label.AddThemeFontOverride("normal_font", regular);
-        if (bold != null) label.AddThemeFontOverride("bold_font", bold);
-        label.AddThemeFontSizeOverride("font_size", fontSize);
-        return label;
-    }
-
-    private static ColorRect CreateDivider() => StyleHelper.CreateDivider(ModTheme.Divider);
-
-    private static HBoxContainer CreateSettingsRow(string labelText)
-    {
-        var hbox = new HBoxContainer
-        {
-            CustomMinimumSize = new Vector2(0, 64),
-            MouseFilter = Control.MouseFilterEnum.Ignore,
-        };
-        hbox.AddThemeConstantOverride("separation", 12);
-        hbox.AddChild(CloneSettingsLabel(labelText));
-        return hbox;
-    }
-
-    private static Control CreateGameTickbox(bool initialValue, Action<bool> onChanged)
-        => WidgetHelper.CreateGameTickbox(initialValue, onChanged);
-
     private static Control CreateGameSlider(FeatureConfig config, ConfigEntry entry)
     {
         bool isInt = entry.Type == ConfigEntryType.Int;
@@ -476,11 +404,6 @@ internal static class DubiousConfigModal
         });
     }
 
-    // ─────────────────────────────────────────────────────────
-    //  Restore to Defaults confirmation — uses the game's
-    //  NGenericPopup for native look and feel
-    // ─────────────────────────────────────────────────────────
-
     private static void ShowRestoreConfirmation(
         FeatureConfig config,
         List<(ConfigEntry entry, Control control)> entryControls)
@@ -489,71 +412,13 @@ internal static class DubiousConfigModal
         var panelRoot = modal?.GetChild(modal.GetChildCount() - 1);
         if (panelRoot == null) return;
 
-        var genericPopup = NGenericPopup.Create();
-        if (genericPopup == null)
-        {
-            DoRestore(config, entryControls);
-            return;
-        }
-
-        // Wrap in a named container so the Escape handler can find and dismiss it.
-        // Includes a dark backdrop since the popup scene doesn't provide one
-        // (NModalContainer normally supplies it via showBackstop).
-        var wrapper = new Control
-        {
-            Name = "RestoreConfirmPopup",
-            MouseFilter = Control.MouseFilterEnum.Stop,
-        };
-        wrapper.SetAnchorsPreset(Control.LayoutPreset.FullRect);
-
-        var backdrop = new ColorRect
-        {
-            Color = new Color(0f, 0f, 0f, 0.5f),
-            MouseFilter = Control.MouseFilterEnum.Stop,
-        };
-        backdrop.SetAnchorsPreset(Control.LayoutPreset.FullRect);
-        wrapper.AddChild(backdrop);
-
-        // Let the popup scene's own layout handle centering —
-        // forcing FullRect overrides the scene's anchor/offset setup.
-        wrapper.AddChild(genericPopup);
-        // The popup was designed for a full-screen parent (NModalContainer),
-        // so the wrapper being FullRect provides the right reference frame.
-        panelRoot.AddChild(wrapper);
-
-        // _Ready has fired: VerticalPopup children are initialized.
-        var vp = genericPopup.GetNodeOrNull("VerticalPopup");
-        if (vp == null) { wrapper.QueueFree(); DoRestore(config, entryControls); return; }
-
-        vp.Call("SetText", "Restore Defaults",
-            $"Restore all {config.Name} settings\nto their default values?");
-
-        var yesBtn = vp.GetNodeOrNull("YesButton");
-        var noBtn = vp.GetNodeOrNull("NoButton");
-        if (yesBtn == null || noBtn == null) { wrapper.QueueFree(); DoRestore(config, entryControls); return; }
-
-        yesBtn.Call("SetText", "Restore");
-        noBtn.Call("SetText", "Cancel");
-        yesBtn.Set("IsYes", true);
-        ((Control)noBtn).Visible = true;
-
-        yesBtn.CallDeferred(NClickableControl.MethodName.Enable);
-        noBtn.CallDeferred(NClickableControl.MethodName.Enable);
-
-        var capturedConfig = config;
-        var capturedControls = entryControls;
-        var capturedWrapper = wrapper;
-
-        yesBtn.Connect(NClickableControl.SignalName.Released, Callable.From<NButton>(_ =>
-        {
-            DoRestore(capturedConfig, capturedControls);
-            capturedWrapper.QueueFree();
-        }));
-
-        noBtn.Connect(NClickableControl.SignalName.Released, Callable.From<NButton>(_ =>
-        {
-            capturedWrapper.QueueFree();
-        }));
+        ModalHelper.ShowConfirmation(
+            (Control)(panelRoot as Control ?? modal!),
+            "RestoreConfirmPopup",
+            "Restore Defaults",
+            $"Restore all {config.Name} settings\nto their default values?",
+            "Restore", "Cancel",
+            () => DoRestore(config, entryControls));
     }
 
     private static void DoRestore(FeatureConfig config, List<(ConfigEntry entry, Control control)> entryControls)

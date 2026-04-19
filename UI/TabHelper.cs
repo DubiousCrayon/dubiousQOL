@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Godot;
 using MegaCrit.Sts2.Core.Assets;
 using MegaCrit.Sts2.Core.Helpers;
+using MegaCrit.Sts2.Core.Nodes.CommonUi;
 using MegaCrit.Sts2.Core.Nodes.GodotExtensions;
 
 namespace dubiousQOL.UI;
@@ -115,6 +116,42 @@ internal static class TabHelper
             if (lbl != null) lbl.Modulate = selected ? Theme.TabActive : Theme.TabInactive;
             tab.Set("_isSelected", selected);
         };
+    }
+
+    /// <summary>
+    /// Wires tab click handlers to swap pages in a ScrollContainer.
+    /// Handles Select/Deselect tab visuals, scroll reset, and duplicate
+    /// click guarding. Assumes the first page is already added to scroll
+    /// and the first tab is selected.
+    /// Works with both game-styled NClickableControl tabs and plain Buttons.
+    /// </summary>
+    public static void WireTabSwitching(List<Node> tabs, IList<Control> pages, ScrollContainer scroll)
+    {
+        int activeTab = 0;
+
+        void SwitchTab(int idx)
+        {
+            if (idx == activeTab || idx < 0 || idx >= pages.Count) return;
+            scroll.RemoveChild(pages[activeTab]);
+            scroll.AddChild(pages[idx]);
+            scroll.ScrollVertical = 0;
+
+            if (activeTab < tabs.Count)
+                tabs[activeTab].Call("Deselect");
+            if (idx < tabs.Count)
+                tabs[idx].Call("Select");
+
+            activeTab = idx;
+        }
+
+        for (int i = 0; i < tabs.Count; i++)
+        {
+            int capturedIdx = i;
+            if (tabs[i] is NClickableControl clickTab)
+                clickTab.Released += _ => SwitchTab(capturedIdx);
+            else
+                tabs[i].Connect("pressed", Callable.From(() => SwitchTab(capturedIdx)));
+        }
     }
 
     /// <summary>

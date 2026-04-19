@@ -1,5 +1,6 @@
 using System;
 using Godot;
+using MegaCrit.Sts2.addons.mega_text;
 using MegaCrit.Sts2.Core.Commands;
 using MegaCrit.Sts2.Core.Helpers;
 using MegaCrit.Sts2.Core.Nodes.GodotExtensions;
@@ -360,6 +361,47 @@ internal static class WidgetHelper
         }
         if (input != null)
             input.Text = isInt ? ((int)value).ToString() : value.ToString("F0");
+    }
+
+    /// <summary>
+    /// Standard settings row: HBoxContainer with a game-styled label on the
+    /// left and space for a widget on the right. Callers add their control
+    /// (tickbox, slider, etc.) as a second child.
+    /// </summary>
+    public static HBoxContainer CreateSettingsRow(string labelText)
+    {
+        var hbox = new HBoxContainer
+        {
+            CustomMinimumSize = new Vector2(0, 64),
+            MouseFilter = Control.MouseFilterEnum.Ignore,
+        };
+        hbox.AddThemeConstantOverride("separation", 12);
+        hbox.AddChild(CreateGameLabel(labelText));
+        return hbox;
+    }
+
+    /// <summary>
+    /// MegaLabel for informational/hint text with game fonts (kreon).
+    /// Uses the settings screen line header theme for consistent styling.
+    /// </summary>
+    public static MegaLabel CreateInfoLabel(string text, int fontSize)
+    {
+        var regular = FontHelper.Load("kreon-regular");
+        var bold = FontHelper.Load("kreon-bold");
+        var theme = FontHelper.LoadTheme("res://themes/settings_screen_line_header.tres");
+
+        var label = new MegaLabel
+        {
+            Theme = theme,
+            AutoSizeEnabled = false,
+            MouseFilter = Control.MouseFilterEnum.Ignore,
+            FocusMode = Control.FocusModeEnum.None,
+            Text = text,
+        };
+        if (regular != null) label.AddThemeFontOverride("normal_font", regular);
+        if (bold != null) label.AddThemeFontOverride("bold_font", bold);
+        label.AddThemeFontSizeOverride("font_size", fontSize);
+        return label;
     }
 
     /// <summary>

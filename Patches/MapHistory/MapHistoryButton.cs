@@ -8,6 +8,7 @@ using MegaCrit.Sts2.Core.Nodes.Screens.RunHistoryScreen;
 using MegaCrit.Sts2.Core.Runs;
 
 using dubiousQOL.UI;
+using dubiousQOL.Utilities;
 
 namespace dubiousQOL.Patches;
 
@@ -126,29 +127,16 @@ public static class PatchMapHistoryButton
     // names without crashing.
     private static Texture2D? TryLoadTopBarMapIcon()
     {
-        string[] candidates =
+        string[] sceneCandidates =
         {
             "res://scenes/ui/top_bar/map_button.tscn",
             "res://scenes/ui/top_bar/top_bar_map_button.tscn",
             "res://scenes/ui/top_bar/map.tscn",
         };
-        foreach (var path in candidates)
+        foreach (var path in sceneCandidates)
         {
-            try
-            {
-                if (!ResourceLoader.Exists(path)) continue;
-                var packed = ResourceLoader.Load<PackedScene>(path, null, ResourceLoader.CacheMode.Reuse);
-                if (packed == null) continue;
-                var inst = packed.Instantiate<Node>(PackedScene.GenEditState.Disabled);
-                try
-                {
-                    var iconNode = inst.GetNodeOrNull<TextureRect>("Control/Icon")
-                                   ?? inst.GetNodeOrNull<TextureRect>("Icon");
-                    if (iconNode?.Texture is Texture2D t) return t;
-                }
-                finally { inst.QueueFree(); }
-            }
-            catch (Exception e) { MainFile.Logger.Warn($"MapHistoryButton icon load {path}: {e.Message}"); }
+            var tex = NodeHelper.ExtractTextureFromScene(path, "Control/Icon", "Icon");
+            if (tex != null) return tex;
         }
         return null;
     }

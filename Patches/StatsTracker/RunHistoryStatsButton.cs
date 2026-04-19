@@ -2,7 +2,6 @@ using System;
 using System.IO;
 using Godot;
 using HarmonyLib;
-using MegaCrit.Sts2.Core.Assets;
 using MegaCrit.Sts2.Core.AutoSlay.Helpers;
 using MegaCrit.Sts2.Core.Commands;
 using MegaCrit.Sts2.Core.Helpers;
@@ -11,6 +10,7 @@ using MegaCrit.Sts2.Core.Nodes.Screens.RunHistoryScreen;
 using MegaCrit.Sts2.Core.Runs;
 
 using dubiousQOL.UI;
+using dubiousQOL.Utilities;
 
 namespace dubiousQOL.Patches;
 
@@ -137,32 +137,14 @@ public static class PatchRunHistoryStatsButton
         if (_cachedIcon != null) return _cachedIcon;
 
         // Pluck the chart/graph icon from the compendium's Statistics button.
-        // The button scene has a TextureRect child "Icon" with the texture
-        // baked into the .tscn. Instantiate once, grab, free, cache.
-        try
-        {
-            var scenePath = SceneHelper.GetScenePath("screens/compendium_submenu");
-            if (ResourceLoader.Exists(scenePath))
-            {
-                var scene = PreloadManager.Cache.GetScene(scenePath);
-                var tmp = scene.Instantiate<Node>(PackedScene.GenEditState.Disabled);
-                try
-                {
-                    // StatisticsButton has an "Icon" TextureRect child.
-                    // Use FindChild — unique name (%) lookup requires the node to be in the tree.
-                    var statsBtn = tmp.FindChild("StatisticsButton", recursive: true, owned: false);
-                    var iconRect = statsBtn?.GetNodeOrNull<TextureRect>("Icon");
-                    if (iconRect?.Texture is Texture2D tex) { _cachedIcon = tex; return tex; }
-                }
-                finally { tmp.QueueFree(); }
-            }
-        }
-        catch (Exception e) { MainFile.Logger.Warn($"RunHistoryStatsButton icon from compendium: {e.Message}"); }
+        var scenePath = SceneHelper.GetScenePath("screens/compendium_submenu");
+        var tex = NodeHelper.ExtractTextureFromScene(scenePath, "StatisticsButton");
+        if (tex != null) { _cachedIcon = tex; return tex; }
 
         // Fallback: stats atlas icon.
         try
         {
-            var tex = ResourceLoader.Load<Texture2D>(
+            tex = ResourceLoader.Load<Texture2D>(
                 "res://images/atlases/stats_screen_atlas.sprites/stats_swords.tres",
                 null, ResourceLoader.CacheMode.Reuse);
             if (tex != null) { _cachedIcon = tex; return tex; }

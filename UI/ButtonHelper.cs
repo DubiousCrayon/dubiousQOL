@@ -1,5 +1,10 @@
+using System;
 using Godot;
 using MegaCrit.Sts2.Core.Commands;
+using MegaCrit.Sts2.Core.Nodes.GodotExtensions;
+using MegaCrit.Sts2.Core.Nodes.Screens.RunHistoryScreen;
+
+using dubiousQOL.Utilities;
 
 namespace dubiousQOL.UI;
 
@@ -91,5 +96,46 @@ internal static class ButtonHelper
             btn.Scale = Vector2.One;
         }
         btn.TooltipText = enabled ? enabledTooltip : disabledTooltip;
+    }
+
+    /// <summary>
+    /// Clones a game-styled navigation arrow (NGoldArrowButton / NRunHistoryArrowButton)
+    /// with ScriptsOnly flags. Sets the name and _isLeft field via reflection for
+    /// NRunHistoryArrowButton sources (avoids calling the IsLeft setter which dereferences
+    /// _icon before _Ready). The clone must be added to the scene tree before calling
+    /// <see cref="ResetClonedArrow"/> — _Ready wires _icon and other fields that the
+    /// reset depends on.
+    /// </summary>
+    public static Control? CloneGameArrow(Node source, string name, bool isLeft)
+    {
+        var clone = CloneHelper.Clone<Control>(source, CloneHelper.ScriptsOnly);
+        if (clone == null) return null;
+        clone.Name = name;
+        if (clone is NRunHistoryArrowButton arrowBtn)
+            ReflectionHelper.SetField(arrowBtn, "_isLeft", isLeft);
+        return clone;
+    }
+
+    /// <summary>
+    /// Resets a cloned arrow's interactive and visual state after it has been added
+    /// to the scene tree. Runs a Disable→Enable cycle to restore _isEnabled and
+    /// FocusMode (the source may have been disabled), then resets Modulate and Scale
+    /// on both the arrow and its inner TextureRect child.
+    /// </summary>
+    public static void ResetClonedArrow(Control arrow)
+    {
+        if (arrow is NClickableControl click)
+        {
+            try { click.Disable(); click.Enable(); }
+            catch (Exception e) { MainFile.Logger.Warn($"ButtonHelper.ResetClonedArrow: {e.Message}"); }
+        }
+        arrow.Modulate = Colors.White;
+        arrow.Scale = Vector2.One;
+        var icon = arrow.GetNodeOrNull<TextureRect>("TextureRect");
+        if (icon != null)
+        {
+            icon.Modulate = Colors.White;
+            icon.Scale = Vector2.One;
+        }
     }
 }

@@ -2,21 +2,18 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Godot;
-using HarmonyLib;
 using MegaCrit.Sts2.Core.Assets;
 using MegaCrit.Sts2.Core.Map;
 using MegaCrit.Sts2.Core.Models;
 using MegaCrit.Sts2.Core.Models.Characters;
 using MegaCrit.Sts2.Core.Models.Encounters;
 using MegaCrit.Sts2.Core.Entities.Players;
-using MegaCrit.Sts2.Core.AutoSlay.Helpers;
 using MegaCrit.Sts2.Core.Commands;
 using MegaCrit.Sts2.Core.HoverTips;
 using MegaCrit.Sts2.Core.Nodes.CommonUi;
 using MegaCrit.Sts2.Core.Nodes.GodotExtensions;
 using MegaCrit.Sts2.Core.Nodes.HoverTips;
 using MegaCrit.Sts2.Core.Nodes.Screens.Map;
-using MegaCrit.Sts2.Core.Nodes.Screens.RunHistoryScreen;
 using MegaCrit.Sts2.Core.Nodes.Screens.ScreenContext;
 using MegaCrit.Sts2.Core.Runs;
 using MegaCrit.Sts2.Core.Runs.History;
@@ -95,10 +92,7 @@ internal partial class MapHistoryViewer : Control, IScreenContext
     // leaving NNormalMapPoint._iconContainer null and SetAngle throwing NRE.
     public override void _Ready()
     {
-        // Back button must be added after the viewer is in the tree so the clone's
-        // _Ready fires before we call Enable() — otherwise OnEnable() dereferences
-        // null _outline/_buttonImage/_moveTween (silently NREs into the fallback).
-        if (!TryBuildBackButton())
+        if (ModalHelper.CreateBackButton(this, "DubiousMapBackButton") == null)
             AddChild(ModalHelper.CreateFallbackCloseButton());
 
         Render();
@@ -156,38 +150,6 @@ internal partial class MapHistoryViewer : Control, IScreenContext
         ModalHelper.TryHandleEscape(inputEvent, this);
     }
 
-    private bool TryBuildBackButton()
-    {
-        try
-        {
-            // NBackButton lives on a parent screen of NRunHistory. Walk up the
-            // run-history screen's ancestors searching subtrees; fall back to a
-            // tree-wide search from the viewport root.
-            NBackButton? src = null;
-            Node? probe = _runHistoryScreen;
-            while (probe != null && src == null)
-            {
-                src = UiHelper.FindFirst<NBackButton>(probe);
-                probe = probe.GetParent();
-            }
-            if (src == null) src = UiHelper.FindFirst<NBackButton>(GetTree().Root);
-            if (src == null) { MainFile.Logger.Warn("MapHistory BuildBackButton: no NBackButton in tree"); return false; }
-
-            var clone = CloneHelper.Clone<NBackButton>(src, CloneHelper.ScriptsOnly);
-            if (clone == null) { MainFile.Logger.Warn("MapHistory BuildBackButton: Duplicate cast failed"); return false; }
-            clone.Name = "DubiousMapBackButton";
-            clone.Released += _ => NModalContainer.Instance?.Clear();
-            AddChild(clone); // viewer is in tree by now → clone._Ready fires synchronously
-            // _Ready already computed _showPos/_hidePos from the duplicated OffsetLeft/Bottom
-            // (which match the in-game back button's anchor since we cloned from it), so
-            // just trigger the slide-in.
-            clone.Enable();
-            return true;
-        }
-        catch (Exception e) { MainFile.Logger.Warn($"MapHistory BuildBackButton: {e.Message}\n{e.StackTrace}"); }
-        return false;
-    }
-
     private void BuildSideArrows()
     {
         if (_runHistoryScreen == null) return;
@@ -201,29 +163,19 @@ internal partial class MapHistoryViewer : Control, IScreenContext
                 return;
             }
 
-            _prevArrow = CloneHelper.Clone<Control>(srcLeft, CloneHelper.ScriptsOnly);
-            _nextArrow = CloneHelper.Clone<Control>(srcRight, CloneHelper.ScriptsOnly);
+            _prevArrow = ButtonHelper.CloneGameArrow(srcLeft, "DubiousMapPrevArrow", isLeft: true);
+            _nextArrow = ButtonHelper.CloneGameArrow(srcRight, "DubiousMapNextArrow", isLeft: false);
             if (_prevArrow == null || _nextArrow == null)
             {
                 MainFile.Logger.Warn($"MapHistory BuildSideArrows: duplicate cast failed");
                 return;
             }
 
-            ConfigureSideArrow(_prevArrow, isLeft: true);
-            ConfigureSideArrow(_nextArrow, isLeft: false);
-
             AddChild(_prevArrow);
             AddChild(_nextArrow);
 
-            // Reset interactive state. The source arrows inherit from a disabled
-            // NRunHistoryArrowButton when the viewed run is the newest/oldest —
-            // Disable() sets _isEnabled=false, FocusMode=None, and tweens the
-            // icon's shader/scale. Without an Enable() call the clone's input
-            // handlers short-circuit (`if (_isEnabled && ...)`) and the button
-            // never responds to hover or clicks. Kill any inherited tween and
-            // reset modulate/scale so the arrow renders at full brightness.
-            ResetClonedArrow(_prevArrow);
-            ResetClonedArrow(_nextArrow);
+            ButtonHelper.ResetClonedArrow(_prevArrow);
+            ButtonHelper.ResetClonedArrow(_nextArrow);
 
             if (_prevArrow is NClickableControl prevClick)
                 prevClick.Released += _ => CycleAct(-1);
@@ -231,50 +183,6 @@ internal partial class MapHistoryViewer : Control, IScreenContext
                 nextClick.Released += _ => CycleAct(+1);
         }
         catch (Exception e) { MainFile.Logger.Warn($"MapHistory BuildSideArrows: {e.Message}\n{e.StackTrace}"); }
-    }
-
-    private static void ConfigureSideArrow(Control arrow, bool isLeft)
-    {
-        arrow.Name = isLeft ? "DubiousMapPrevArrow" : "DubiousMapNextArrow";
-        // Don't reanchor or reposition — Duplicate copies the source's anchors
-        // and offsets verbatim, and the viewer shares its FullRect layout with
-        // NRunHistory, so the clones land pixel-for-pixel where the source
-        // arrows sit on the run-history screen underneath.
-
-        // Don't call arrowBtn.IsLeft = isLeft — the setter dereferences _icon,
-        // which Godot's Duplicate(4) doesn't reliably remap on the clone (script-
-        // side Node references fall through to null), so the first call NREs and
-        // aborts BuildSideArrows before either arrow gets added. The source's
-        // _icon.FlipH is already oriented correctly (we cloned the left-pointing
-        // arrow for prev and the right-pointing one for next), and Duplicate
-        // preserves the TextureRect child's FlipH verbatim. Set the private
-        // _isLeft field via reflection purely so any internal logic keying off
-        // it behaves correctly — we don't use its hotkeys in the viewer.
-        if (arrow is NRunHistoryArrowButton arrowBtn)
-            ReflectionHelper.SetField(arrowBtn, "_isLeft", isLeft);
-    }
-
-    private static void ResetClonedArrow(Control arrow)
-    {
-        // Force a fresh Enable() to restore _isEnabled, FocusMode, and hotkeys
-        // in case the source was disabled. NClickableControl.Enable early-returns
-        // when already enabled, so poke _isEnabled to false via Disable() first.
-        if (arrow is NClickableControl click)
-        {
-            try { click.Disable(); click.Enable(); }
-            catch (Exception e) { MainFile.Logger.Warn($"MapHistory ResetClonedArrow enable: {e.Message}"); }
-        }
-        // Reset visual state from any inherited hover/press tween. The inner
-        // TextureRect is where NGoldArrowButton applies scale and shader value,
-        // so poke it directly as well.
-        arrow.Modulate = Colors.White;
-        arrow.Scale = Vector2.One;
-        var icon = arrow.GetNodeOrNull<TextureRect>("TextureRect");
-        if (icon != null)
-        {
-            icon.Modulate = Colors.White;
-            icon.Scale = Vector2.One;
-        }
     }
 
     private void CycleAct(int delta)

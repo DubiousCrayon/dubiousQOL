@@ -4,6 +4,7 @@ using MegaCrit.Sts2.Core.Assets;
 using MegaCrit.Sts2.Core.Helpers;
 using MegaCrit.Sts2.Core.Nodes.CommonUi;
 using MegaCrit.Sts2.Core.Nodes.GodotExtensions;
+using MegaCrit.Sts2.Core.Nodes.Multiplayer;
 
 namespace dubiousQOL.UI;
 
@@ -50,11 +51,34 @@ internal static class ModalHelper
     /// </summary>
     public static bool TryHandleEscape(InputEvent inputEvent, Node handler)
     {
-        if (inputEvent is InputEventKey { Pressed: true } k && k.Keycode == Key.Escape)
+        if (inputEvent is InputEventKey k && k.Pressed && !k.Echo && k.Keycode == Key.Escape)
         {
             NModalContainer.Instance?.Clear();
             handler.GetViewport().SetInputAsHandled();
             return true;
+        }
+        return false;
+    }
+
+    /// <summary>
+    /// Checks for a named child popup and frees it if found, consuming
+    /// the Escape event. Call from <c>_Input</c> — this must fire before
+    /// NBackButton's hotkey handler in <c>_UnhandledInput</c>, otherwise
+    /// the back button dismisses the entire modal before we can dismiss
+    /// just the popup.
+    /// Returns true if a popup was found and dismissed.
+    /// </summary>
+    public static bool TryDismissChildPopup(InputEvent inputEvent, Node handler, string popupName)
+    {
+        if (inputEvent is InputEventKey k && k.Pressed && !k.Echo && k.Keycode == Key.Escape)
+        {
+            var popup = handler.FindChild(popupName, recursive: true, owned: false);
+            if (popup != null)
+            {
+                popup.QueueFree();
+                handler.GetViewport().SetInputAsHandled();
+                return true;
+            }
         }
         return false;
     }
@@ -121,5 +145,75 @@ internal static class ModalHelper
         close.OffsetTop = -84; close.OffsetBottom = -40;
         close.Pressed += () => NModalContainer.Instance?.Clear();
         return close;
+    }
+
+    /// <summary>
+    /// Shows a game-styled confirmation popup (NGenericPopup) with a dark
+    /// backdrop, Yes/No buttons, and Escape dismissal. The popup is added as
+    /// a child of <paramref name="parent"/>.
+    ///
+    /// If NGenericPopup.Create() fails (e.g. TestMode), <paramref name="onConfirm"/>
+    /// is called immediately as a fallback.
+    ///
+    /// Returns the wrapper Control (named <paramref name="popupName"/>) so the
+    /// caller can find/dismiss it, or null if the fallback path was taken.
+    /// </summary>
+    public static Control? ShowConfirmation(Control parent, string popupName,
+        string title, string message, string yesText, string noText, Action onConfirm)
+    {
+        var genericPopup = NGenericPopup.Create();
+        if (genericPopup == null)
+        {
+            onConfirm();
+            return null;
+        }
+
+        var wrapper = new Control
+        {
+            Name = popupName,
+            MouseFilter = Control.MouseFilterEnum.Stop,
+        };
+        wrapper.SetAnchorsPreset(Control.LayoutPreset.FullRect);
+
+        var backdrop = new ColorRect
+        {
+            Color = new Color(0f, 0f, 0f, 0.5f),
+            MouseFilter = Control.MouseFilterEnum.Stop,
+        };
+        backdrop.SetAnchorsPreset(Control.LayoutPreset.FullRect);
+        wrapper.AddChild(backdrop);
+
+        wrapper.AddChild(genericPopup);
+        parent.AddChild(wrapper);
+
+        var vp = genericPopup.GetNodeOrNull("VerticalPopup");
+        if (vp == null) { wrapper.QueueFree(); onConfirm(); return null; }
+
+        vp.Call("SetText", title, message);
+
+        var yesBtn = vp.GetNodeOrNull("YesButton");
+        var noBtn = vp.GetNodeOrNull("NoButton");
+        if (yesBtn == null || noBtn == null) { wrapper.QueueFree(); onConfirm(); return null; }
+
+        yesBtn.Call("SetText", yesText);
+        noBtn.Call("SetText", noText);
+        yesBtn.Set("IsYes", true);
+        ((Control)noBtn).Visible = true;
+
+        yesBtn.CallDeferred(NClickableControl.MethodName.Enable);
+        noBtn.CallDeferred(NClickableControl.MethodName.Enable);
+
+        yesBtn.Connect(NClickableControl.SignalName.Released, Callable.From<NButton>(_ =>
+        {
+            onConfirm();
+            wrapper.QueueFree();
+        }));
+
+        noBtn.Connect(NClickableControl.SignalName.Released, Callable.From<NButton>(_ =>
+        {
+            wrapper.QueueFree();
+        }));
+
+        return wrapper;
     }
 }

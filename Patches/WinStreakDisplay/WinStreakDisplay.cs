@@ -1,11 +1,11 @@
 using System;
-using System.Collections.Generic;
 using Godot;
 using HarmonyLib;
 using MegaCrit.Sts2.Core.Saves;
 using MegaCrit.sts2.Core.Nodes.TopBar;
 
 using dubiousQOL.UI;
+using dubiousQOL.UI.Custom;
 
 namespace dubiousQOL.Patches;
 
@@ -18,6 +18,9 @@ namespace dubiousQOL.Patches;
 public static class PatchWinStreakDisplay
 {
     private const string NodeName = "DubiousWinStreakBadge";
+    private const float FrameDurationSec = 1f / 30f;
+    private const string FramePathFormat = "res://dubiousQOL/images/winstreak/winstreak_frames/frame_{0:D2}.png";
+    private const string FallbackPath = "res://dubiousQOL/images/winstreak/winstreak.png";
 
     private static WeakReference<TextureRect>? _animFlame;
     private static Texture2D[]? _animFrames;
@@ -54,7 +57,7 @@ public static class PatchWinStreakDisplay
             parent.MoveChild(badge, idx + 1);
         }
 
-        var frames = FlameIcons.GetFrames();
+        var frames = SpriteFrameLoader.LoadFrames(FramePathFormat, fallbackPath: FallbackPath);
         var flame = badge.GetNode<TextureRect>("Flame");
         if (frames != null && frames.Length > 0) flame.Texture = frames[0];
 
@@ -70,7 +73,6 @@ public static class PatchWinStreakDisplay
         }
     }
 
-    // Cycle through the loaded flame frames each tick to play the GIF animation.
     private static void OnProcessFrame()
     {
         try
@@ -80,7 +82,7 @@ public static class PatchWinStreakDisplay
             if (_animFrames == null || _animFrames.Length <= 1) return;
 
             float t = Time.GetTicksMsec() / 1000f;
-            int idx = FlameIcons.FrameIndexAt(t, _animFrames.Length);
+            int idx = SpriteFrameLoader.FrameIndexAt(t, _animFrames.Length, FrameDurationSec);
             var next = _animFrames[idx];
             if (flame.Texture != next) flame.Texture = next;
         }
@@ -103,7 +105,8 @@ public static class PatchWinStreakDisplay
 
     private static MarginContainer? CreateBadge()
     {
-        var tex = FlameIcons.Get();
+        var frames = SpriteFrameLoader.LoadFrames(FramePathFormat, fallbackPath: FallbackPath);
+        var tex = frames != null && frames.Length > 0 ? frames[0] : null;
         if (tex == null) return null;
 
         var size = new Vector2(56, 60);
@@ -114,9 +117,6 @@ public static class PatchWinStreakDisplay
             MouseFilter = Control.MouseFilterEnum.Ignore,
             SizeFlagsVertical = Control.SizeFlags.ShrinkCenter,
         };
-        // margin_left: gap between act name and the flame.
-        // margin_bottom: extra row space below content; combined with
-        // ShrinkCenter alignment, this lifts the flame upward in the row.
         root.AddThemeConstantOverride("margin_left", 15);
         root.AddThemeConstantOverride("margin_bottom", 0);
 
@@ -139,7 +139,7 @@ public static class PatchWinStreakDisplay
             MouseFilter = Control.MouseFilterEnum.Ignore,
         };
         label.SetAnchorsPreset(Control.LayoutPreset.FullRect);
-        label.OffsetTop = 42; // sit in the wider belly, not the tip
+        label.OffsetTop = 42;
         label.OffsetRight = 2;
         var fontRes = FontHelper.Load("mgf-firechikns");
         if (fontRes != null)
@@ -152,132 +152,16 @@ public static class PatchWinStreakDisplay
         label.AddThemeConstantOverride("shadow_offset_x", 1);
         label.AddThemeConstantOverride("shadow_offset_y", 2);
         label.AddThemeConstantOverride("shadow_outline_size", 2);
-        // Child of the flame (not a Container) so anchors/OffsetTop aren't
-        // overridden by MarginContainer's layout.
         flame.AddChild(label);
 
-        var arch = CreateArchLabel("WINSTREAK",
+        var arch = Widgets.CreateArchLabel("WINSTREAK",
+            fontId: "fightkid",
+            fontSize: 11,
+            color: new Color(1f, 0.78f, 0.22f),
             radius: 34f,
             arcDegrees: 135f,
-            centerOffsetY: 6f,
-            fontSize: 11);
+            centerOffsetY: 6f);
         flame.AddChild(arch);
         return root;
-    }
-
-    // Builds a Control whose child Labels sit on a circular arc at the top of
-    // the parent. centerOffsetY nudges the arc's center (useful when the flame
-    // circle isn't centered in its bounding box). Each glyph is rotated so its
-    // baseline is tangent to the arc.
-    private static Control CreateArchLabel(string text, float radius, float arcDegrees, float centerOffsetY, int fontSize)
-    {
-        var container = new Control
-        {
-            Name = "Arch",
-            MouseFilter = Control.MouseFilterEnum.Ignore,
-            AnchorLeft = 0.5f,
-            AnchorRight = 0.5f,
-            AnchorTop = 0.5f,
-            AnchorBottom = 0.5f,
-            OffsetLeft = 0,
-            OffsetRight = 0,
-            OffsetTop = centerOffsetY,
-            OffsetBottom = centerOffsetY,
-        };
-
-        var font = FontHelper.Load("fightkid");
-
-        int n = text.Length;
-        if (n == 0) return container;
-
-        float arcRad = Mathf.DegToRad(arcDegrees);
-        float step = n > 1 ? arcRad / (n - 1) : 0;
-        float startAngle = -Mathf.Pi / 2f - arcRad / 2f;
-
-        var glyphSize = new Vector2(fontSize + 6, fontSize + 8);
-
-        for (int i = 0; i < n; i++)
-        {
-            float angle = startAngle + step * i;
-            float x = Mathf.Cos(angle) * radius;
-            float y = Mathf.Sin(angle) * radius;
-
-            var ch = new Label
-            {
-                Text = text[i].ToString(),
-                HorizontalAlignment = HorizontalAlignment.Center,
-                VerticalAlignment = VerticalAlignment.Center,
-                MouseFilter = Control.MouseFilterEnum.Ignore,
-                Size = glyphSize,
-                PivotOffset = glyphSize / 2f,
-                Position = new Vector2(x, y) - glyphSize / 2f,
-                Rotation = angle + Mathf.Pi / 2f,
-            };
-            if (font != null) ch.AddThemeFontOverride("font", font);
-            ch.AddThemeFontSizeOverride("font_size", fontSize);
-            ch.AddThemeColorOverride("font_color", new Color(1f, 0.78f, 0.22f));
-            ch.AddThemeColorOverride("font_outline_color", new Color(0f, 0f, 0f));
-            ch.AddThemeConstantOverride("outline_size", 6);
-            ch.AddThemeColorOverride("font_shadow_color", new Color(0, 0, 0, 0.9f));
-            ch.AddThemeConstantOverride("shadow_offset_x", 0);
-            ch.AddThemeConstantOverride("shadow_offset_y", 2);
-            ch.AddThemeConstantOverride("shadow_outline_size", 3);
-            container.AddChild(ch);
-        }
-        return container;
-    }
-}
-
-/// <summary>
-/// Loads bundled flame frames from dubiousQOL/images/winstreak/winstreak_frames/.
-/// Falls back to the static winstreak.png if the frame folder is empty.
-/// </summary>
-internal static class FlameIcons
-{
-    private const float FrameDurationSec = 1f / 30f;
-
-    private static Texture2D[]? _framesCache;
-    private static bool _loaded;
-
-    public static Texture2D? Get()
-    {
-        var frames = GetFrames();
-        return frames != null && frames.Length > 0 ? frames[0] : null;
-    }
-
-    public static Texture2D[]? GetFrames()
-    {
-        if (_loaded) return _framesCache;
-
-        var list = new List<Texture2D>();
-        for (int i = 0; i < 64; i++)
-        {
-            var path = $"res://dubiousQOL/images/winstreak/winstreak_frames/frame_{i:D2}.png";
-            var tex = ResourceLoader.Load<Texture2D>(path, null, ResourceLoader.CacheMode.Reuse);
-            if (tex == null) break;
-            list.Add(tex);
-        }
-
-        if (list.Count == 0)
-        {
-            var staticTex = ResourceLoader.Load<Texture2D>(
-                "res://dubiousQOL/images/winstreak/winstreak.png", null, ResourceLoader.CacheMode.Reuse);
-            if (staticTex != null) list.Add(staticTex);
-        }
-
-        _framesCache = list.Count > 0 ? list.ToArray() : null;
-        _loaded = true;
-        return _framesCache;
-    }
-
-    public static int FrameIndexAt(float timeSec, int frameCount)
-    {
-        if (frameCount <= 1) return 0;
-        float loopSec = frameCount * FrameDurationSec;
-        float t = timeSec % loopSec;
-        if (t < 0) t += loopSec;
-        int idx = (int)(t / FrameDurationSec);
-        if (idx >= frameCount) idx = frameCount - 1;
-        return idx;
     }
 }

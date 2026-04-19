@@ -11,6 +11,7 @@ using MegaCrit.Sts2.Core.Platform;
 using MegaCrit.Sts2.Core.Runs;
 
 using dubiousQOL.UI;
+using dubiousQOL.UI.Custom;
 
 namespace dubiousQOL.Patches;
 
@@ -217,7 +218,7 @@ internal sealed partial class StatsTrackerOverlay : Control
     private void BuildUi()
     {
         var bg = new Panel { MouseFilter = MouseFilterEnum.Stop };
-        bg.AddThemeStyleboxOverride("panel", MakeStyleBox(
+        bg.AddThemeStyleboxOverride("panel", StyleHelper.MakeStyleBox(
             BgColor, 6, BorderColor, 1));
         bg.SetAnchorsPreset(LayoutPreset.FullRect);
         AddChild(bg);
@@ -280,7 +281,7 @@ internal sealed partial class StatsTrackerOverlay : Control
             MouseFilter = MouseFilterEnum.Stop,
             MouseDefaultCursorShape = CursorShape.PointingHand,
         };
-        panel.AddThemeStyleboxOverride("panel", MakeStyleBox(TabInactiveColor, 3));
+        panel.AddThemeStyleboxOverride("panel", StyleHelper.MakeStyleBox(TabInactiveColor, 3));
         panel.GuiInput += e =>
         {
             if (e is InputEventMouseButton mb && mb.ButtonIndex == MouseButton.Left && mb.Pressed)
@@ -355,7 +356,7 @@ internal sealed partial class StatsTrackerOverlay : Control
             MouseFilter = MouseFilterEnum.Stop,
             MouseDefaultCursorShape = CursorShape.Move,
         };
-        var style = MakeStyleBox(TitleColor, 6);
+        var style = StyleHelper.MakeStyleBox(TitleColor, 6);
         style.CornerRadiusBottomLeft = 0;
         style.CornerRadiusBottomRight = 0;
         panel.AddThemeStyleboxOverride("panel", style);
@@ -389,7 +390,7 @@ internal sealed partial class StatsTrackerOverlay : Control
             SizeFlagsVertical = SizeFlags.ShrinkCenter,
         };
         closeBtn.AddThemeFontSizeOverride("font_size", 11);
-        StyleButton(closeBtn, Colors.Transparent, new Color(0.5f, 0.15f, 0.15f, 0.8f));
+        Widgets.StyleButton(closeBtn, Colors.Transparent, new Color(0.5f, 0.15f, 0.15f, 0.8f));
         closeBtn.Pressed += () => { _userVisible = false; UpdateEffectiveVisibility(); };
         hbox.AddChild(closeBtn);
 
@@ -424,7 +425,7 @@ internal sealed partial class StatsTrackerOverlay : Control
         var row = new HBoxContainer { MouseFilter = MouseFilterEnum.Ignore };
         row.AddThemeConstantOverride("separation", 4);
 
-        var prev = MakeArrowBtn("\u25C0");
+        var prev = Widgets.CreateArrowButton("\u25C0", TabInactiveColor, new Color(0.2f, 0.2f, 0.28f, 0.8f));
         prev.Pressed += () => CycleMetric(-1);
         row.AddChild(prev);
 
@@ -440,7 +441,7 @@ internal sealed partial class StatsTrackerOverlay : Control
         _metricLabel.AddThemeColorOverride("font_color", MetricAccentColors[(int)_metric]);
         row.AddChild(_metricLabel);
 
-        var next = MakeArrowBtn("\u25B6");
+        var next = Widgets.CreateArrowButton("\u25B6", TabInactiveColor, new Color(0.2f, 0.2f, 0.28f, 0.8f));
         next.Pressed += () => CycleMetric(1);
         row.AddChild(next);
 
@@ -452,29 +453,15 @@ internal sealed partial class StatsTrackerOverlay : Control
         var row = new HBoxContainer { MouseFilter = MouseFilterEnum.Ignore };
         row.AddThemeConstantOverride("separation", 2);
 
-        _perTurnBtn = MakeAggBtn("Per Turn");
+        _perTurnBtn = Widgets.CreateToggleButton("Per Turn");
         _perTurnBtn.Pressed += () => SetAggregation(true);
         row.AddChild(_perTurnBtn);
 
-        _cumulativeBtn = MakeAggBtn("Cumulative");
+        _cumulativeBtn = Widgets.CreateToggleButton("Cumulative");
         _cumulativeBtn.Pressed += () => SetAggregation(false);
         row.AddChild(_cumulativeBtn);
 
         return row;
-    }
-
-    private static Button MakeAggBtn(string label)
-    {
-        var btn = new Button
-        {
-            Text = label,
-            SizeFlagsHorizontal = SizeFlags.ExpandFill,
-            CustomMinimumSize = new Vector2(0, 22),
-            FocusMode = FocusModeEnum.None,
-            MouseFilter = MouseFilterEnum.Stop,
-        };
-        btn.AddThemeFontSizeOverride("font_size", 11);
-        return btn;
     }
 
     private Control BuildResizeHandle(ResizeEdge edge)
@@ -689,7 +676,7 @@ internal sealed partial class StatsTrackerOverlay : Control
             MouseFilter = breakdown != null && breakdown.Count > 0
                 ? MouseFilterEnum.Stop : MouseFilterEnum.Ignore,
         };
-        barBg.AddThemeStyleboxOverride("panel", MakeStyleBox(BarBgColor, 3));
+        barBg.AddThemeStyleboxOverride("panel", StyleHelper.MakeStyleBox(BarBgColor, 3));
         row.AddChild(barBg);
 
         if (breakdown != null && breakdown.Count > 0)
@@ -797,7 +784,7 @@ internal sealed partial class StatsTrackerOverlay : Control
         };
 
         var bg = new Panel { MouseFilter = MouseFilterEnum.Ignore };
-        bg.AddThemeStyleboxOverride("panel", MakeStyleBox(BgColor, 4, BorderColor, 1));
+        bg.AddThemeStyleboxOverride("panel", StyleHelper.MakeStyleBox(BgColor, 4, BorderColor, 1));
         bg.SetAnchorsPreset(LayoutPreset.FullRect);
         popup.AddChild(bg);
 
@@ -1051,88 +1038,16 @@ internal sealed partial class StatsTrackerOverlay : Control
     private void UpdateScopeHighlights()
     {
         for (int i = 0; i < 3; i++)
-            StyleTabButton(_scopeBtns[i], i == (int)_scope, AccentColor);
-    }
-
-    private static void StyleTabButton(Button btn, bool active, Color accent)
-    {
-        var bg = new Color(0.14f, 0.14f, 0.20f, 0.8f);
-        var hoverBg = new Color(0.22f, 0.22f, 0.30f, 0.9f);
-        btn.AddThemeStyleboxOverride("normal", MakeTabStylebox(bg, active, accent));
-        btn.AddThemeStyleboxOverride("hover", MakeTabStylebox(hoverBg, active, accent));
-        btn.AddThemeStyleboxOverride("pressed", MakeTabStylebox(hoverBg, active, accent));
-        btn.AddThemeStyleboxOverride("focus", MakeStyleBox(Colors.Transparent));
-
-        var inactiveText = new Color(0.62f, 0.62f, 0.70f);
-        btn.AddThemeColorOverride("font_color", active ? accent : inactiveText);
-        btn.AddThemeColorOverride("font_hover_color", active ? accent : new Color(0.85f, 0.85f, 0.92f));
-        btn.AddThemeColorOverride("font_pressed_color", active ? accent : inactiveText);
-    }
-
-    private static StyleBoxFlat MakeTabStylebox(Color bg, bool active, Color accent)
-    {
-        var sb = new StyleBoxFlat { BgColor = bg };
-        sb.CornerRadiusTopLeft = 3;
-        sb.CornerRadiusTopRight = 3;
-        sb.CornerRadiusBottomLeft = 3;
-        sb.CornerRadiusBottomRight = 3;
-        if (active)
-        {
-            sb.BorderColor = accent;
-            sb.BorderWidthBottom = 2;
-        }
-        return sb;
+            Widgets.StyleTabButton(_scopeBtns[i], i == (int)_scope, AccentColor);
     }
 
     private void UpdateAggButton()
     {
-        StyleTabButton(_perTurnBtn, _perTurn, AggAccentColor);
-        StyleTabButton(_cumulativeBtn, !_perTurn, AggAccentColor);
-    }
-
-    private static Button MakeArrowBtn(string text)
-    {
-        var btn = new Button
-        {
-            Text = text,
-            CustomMinimumSize = new Vector2(28, 24),
-            FocusMode = FocusModeEnum.None,
-            MouseFilter = MouseFilterEnum.Stop,
-        };
-        btn.AddThemeFontSizeOverride("font_size", 11);
-        StyleButton(btn, TabInactiveColor, new Color(0.2f, 0.2f, 0.28f, 0.8f));
-        return btn;
-    }
-
-    private static void StyleButton(Button btn, Color normal, Color hover)
-    {
-        btn.AddThemeStyleboxOverride("normal", MakeStyleBox(normal, 3));
-        btn.AddThemeStyleboxOverride("hover", MakeStyleBox(hover, 3));
-        btn.AddThemeStyleboxOverride("pressed", MakeStyleBox(hover, 3));
-        btn.AddThemeStyleboxOverride("focus", MakeStyleBox(Colors.Transparent));
+        Widgets.StyleTabButton(_perTurnBtn, _perTurn, AggAccentColor);
+        Widgets.StyleTabButton(_cumulativeBtn, !_perTurn, AggAccentColor);
     }
 
     private static string ToHex(Color c) =>
         $"#{(byte)Mathf.Clamp(c.R * 255f, 0, 255):X2}{(byte)Mathf.Clamp(c.G * 255f, 0, 255):X2}{(byte)Mathf.Clamp(c.B * 255f, 0, 255):X2}";
 
-    private static StyleBoxFlat MakeStyleBox(Color bg, int corner = 0, Color? border = null, int borderW = 0)
-    {
-        var sb = new StyleBoxFlat { BgColor = bg };
-        if (corner > 0)
-        {
-            sb.CornerRadiusTopLeft = corner;
-            sb.CornerRadiusTopRight = corner;
-            sb.CornerRadiusBottomLeft = corner;
-            sb.CornerRadiusBottomRight = corner;
-        }
-        if (border.HasValue && borderW > 0)
-        {
-            sb.BorderColor = border.Value;
-            sb.BorderWidthTop = borderW;
-            sb.BorderWidthBottom = borderW;
-            sb.BorderWidthLeft = borderW;
-            sb.BorderWidthRight = borderW;
-        }
-        return sb;
-    }
 }
