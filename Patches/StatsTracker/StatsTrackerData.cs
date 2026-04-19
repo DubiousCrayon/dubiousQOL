@@ -19,6 +19,7 @@ using MegaCrit.Sts2.Core.Models.Potions;
 using MegaCrit.Sts2.Core.Models.Powers;
 using MegaCrit.Sts2.Core.Models.Relics;
 using MegaCrit.Sts2.Core.Platform;
+using MegaCrit.Sts2.Core.Rooms;
 using MegaCrit.Sts2.Core.Runs;
 using MegaCrit.Sts2.Core.Saves;
 using MegaCrit.Sts2.Core.Saves.Managers;
@@ -71,7 +72,10 @@ internal static class StatsTrackerData
     public static readonly DmScopeStats Combat = new();
     public static readonly DmScopeStats Act = new();
     public static readonly DmScopeStats Run = new();
+    public static readonly List<DmCombatSnapshot> CombatSnapshots = new();
     public static event Action? Updated;
+
+    internal static void NotifyUpdated() => Updated?.Invoke();
 
     internal const ulong UnattributedId = 0;
 
@@ -91,6 +95,9 @@ internal static class StatsTrackerData
     private static bool _installed;
     private static bool _hookedHistory;
     private static int _processedCount;
+    // Set by RestoreMidRun so the next RunStarted (which fires for saved
+    // runs too) skips ResetAll instead of wiping the just-restored data.
+    internal static bool RestoredFromSidecar;
 
     // Tracks which players applied damage-dealing debuffs to each enemy,
     // keyed by creature → list of (netId, powerName) pairs. Used to attribute
@@ -210,8 +217,37 @@ internal static class StatsTrackerData
             RunManager.Instance.RunStarted += _ => ResetAll();
             RunManager.Instance.ActEntered += ResetAct;
             CombatManager.Instance.CombatSetUp += _ => OnCombatSetUp();
+            CombatManager.Instance.CombatEnded += OnCombatEnded;
         }
         catch (Exception e) { MainFile.Logger.Warn($"StatsTrackerData install: {e.Message}"); }
+    }
+
+    private static void OnCombatEnded(CombatRoom room)
+    {
+        try
+        {
+            var state = RunManager.Instance?.DebugOnlyGetState();
+            var scope = StatsTrackerIO.ToSidecarScope(Combat, state);
+            string? encounter = null;
+            try { encounter = room.Encounter?.Id.Entry; } catch { }
+            CombatSnapshots.Add(new DmCombatSnapshot
+            {
+                Act = state?.CurrentActIndex ?? 0,
+                Floor = state?.ActFloor ?? 0,
+                Encounter = encounter,
+                RoomType = room.RoomType.ToString(),
+                PlayerTurns = scope.PlayerTurns,
+                Players = scope.Players,
+            });
+        }
+        catch (Exception e) { MainFile.Logger.Warn($"StatsTracker combat snapshot: {e.Message}"); }
+    }
+
+    internal static void OnGameSaved()
+    {
+        if (!StatsTrackerConfig.Instance.Enabled) return;
+        try { StatsTrackerIO.WriteMidRun(); }
+        catch (Exception e) { MainFile.Logger.Warn($"StatsTracker mid-run save: {e.Message}"); }
     }
 
     private static void OnCombatSetUp()
@@ -242,11 +278,18 @@ internal static class StatsTrackerData
 
     private static void ResetAll()
     {
+        if (RestoredFromSidecar)
+        {
+            RestoredFromSidecar = false;
+            return;
+        }
         Run.Reset();
         Act.Reset();
         Combat.Reset();
         _processedCount = 0;
+        CombatSnapshots.Clear();
         SourceIconResolver.ClearCache();
+        StatsTrackerIO.DeleteMidRunSidecar();
         Updated?.Invoke();
     }
 
@@ -559,6 +602,40 @@ public static class PatchDoomKill
     }
 }
 
+[HarmonyPatch(typeof(SaveManager), nameof(SaveManager.SaveRun))]
+public static class PatchSaveRunSidecar
+{
+    [HarmonyPostfix]
+    public static void Postfix()
+    {
+        StatsTrackerData.OnGameSaved();
+    }
+}
+
+[HarmonyPatch(typeof(RunManager), nameof(RunManager.SetUpSavedSinglePlayer))]
+public static class PatchRestoreStatsSinglePlayer
+{
+    [HarmonyPostfix]
+    public static void Postfix()
+    {
+        if (!StatsTrackerConfig.Instance.Enabled) return;
+        try { StatsTrackerIO.RestoreMidRun(); }
+        catch (Exception e) { MainFile.Logger.Warn($"StatsTracker restore SP: {e.Message}"); }
+    }
+}
+
+[HarmonyPatch(typeof(RunManager), nameof(RunManager.SetUpSavedMultiPlayer))]
+public static class PatchRestoreStatsMultiPlayer
+{
+    [HarmonyPostfix]
+    public static void Postfix()
+    {
+        if (!StatsTrackerConfig.Instance.Enabled) return;
+        try { StatsTrackerIO.RestoreMidRun(); }
+        catch (Exception e) { MainFile.Logger.Warn($"StatsTracker restore MP: {e.Message}"); }
+    }
+}
+
 internal sealed class DmSidecarPlayer
 {
     [JsonPropertyName("netId")] public string NetId { get; set; } = "";
@@ -566,18 +643,41 @@ internal sealed class DmSidecarPlayer
     [JsonPropertyName("damageDealt")] public long DamageDealt { get; set; }
     [JsonPropertyName("blockGained")] public long BlockGained { get; set; }
     [JsonPropertyName("hpLost")] public long HpLost { get; set; }
+    [JsonPropertyName("damageBySource")] public Dictionary<string, long>? DamageBySource { get; set; }
+    [JsonPropertyName("blockBySource")] public Dictionary<string, long>? BlockBySource { get; set; }
+    [JsonPropertyName("hpLostBySource")] public Dictionary<string, long>? HpLostBySource { get; set; }
+}
+
+internal sealed class DmSidecarScope
+{
+    [JsonPropertyName("playerTurns")] public int PlayerTurns { get; set; }
+    [JsonPropertyName("players")] public List<DmSidecarPlayer> Players { get; set; } = new();
+}
+
+internal sealed class DmCombatSnapshot
+{
+    [JsonPropertyName("act")] public int Act { get; set; }
+    [JsonPropertyName("floor")] public int Floor { get; set; }
+    [JsonPropertyName("encounter")] public string? Encounter { get; set; }
+    [JsonPropertyName("roomType")] public string? RoomType { get; set; }
+    [JsonPropertyName("playerTurns")] public int PlayerTurns { get; set; }
+    [JsonPropertyName("players")] public List<DmSidecarPlayer> Players { get; set; } = new();
 }
 
 internal sealed class DmSidecar
 {
-    [JsonPropertyName("version")] public int Version { get; set; } = 1;
+    [JsonPropertyName("version")] public int Version { get; set; } = 2;
     [JsonPropertyName("runTurns")] public int RunTurns { get; set; }
     [JsonPropertyName("players")] public List<DmSidecarPlayer> Players { get; set; } = new();
+    [JsonPropertyName("scopes")] public Dictionary<string, DmSidecarScope>? Scopes { get; set; }
+    [JsonPropertyName("combats")] public List<DmCombatSnapshot>? Combats { get; set; }
 }
 
 internal static class StatsTrackerIO
 {
-    private const string Suffix = ".dm.json";
+    private const string Dir = "stats_tracker";
+    private const string Suffix = ".stats.json";
+    private const string MidRunFile = "current_run.stats.json";
 
     private static readonly JsonSerializerOptions _opts = new()
     {
@@ -585,16 +685,13 @@ internal static class StatsTrackerIO
         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
     };
 
-    internal static string? SidecarPath(long startTime)
+    private static string? BasePath()
     {
         try
         {
             int profileId = SaveManager.Instance.CurrentProfileId;
-            // Same path discipline as MapHistory: sidecars live OUTSIDE history/ so the
-            // run-history loader doesn't try to deserialize them as corrupt runs.
             string userPath = UserDataPathProvider.GetProfileScopedPath(profileId, UserDataPathProvider.SavesDir);
-            string abs = ProjectSettings.GlobalizePath(userPath);
-            return Path.Combine(abs, "damage_meter", startTime + Suffix);
+            return Path.Combine(ProjectSettings.GlobalizePath(userPath), Dir);
         }
         catch (Exception e)
         {
@@ -603,30 +700,159 @@ internal static class StatsTrackerIO
         }
     }
 
-    internal static void Write(long startTime)
+    internal static string? SidecarPath(long startTime)
     {
-        var path = SidecarPath(startTime);
-        if (path == null) return;
-        if (StatsTrackerData.Run.ByPlayer.Count == 0) return;
+        var baseDir = BasePath();
+        return baseDir != null ? Path.Combine(baseDir, startTime + Suffix) : null;
+    }
 
-        var side = new DmSidecar { RunTurns = StatsTrackerData.Run.PlayerTurns };
-        var state = RunManager.Instance?.DebugOnlyGetState();
-        foreach (var kv in StatsTrackerData.Run.ByPlayer)
+    internal static string? MidRunSidecarPath()
+    {
+        var baseDir = BasePath();
+        return baseDir != null ? Path.Combine(baseDir, MidRunFile) : null;
+    }
+
+    internal static DmSidecarScope ToSidecarScope(DmScopeStats scope, RunState? state)
+    {
+        var result = new DmSidecarScope { PlayerTurns = scope.PlayerTurns };
+        foreach (var kv in scope.ByPlayer)
         {
             string? character = null;
             try { character = state?.GetPlayer(kv.Key)?.Character?.Title.GetFormattedText(); }
             catch { }
-            side.Players.Add(new DmSidecarPlayer
+            result.Players.Add(new DmSidecarPlayer
             {
                 NetId = kv.Key.ToString(),
                 Character = character,
                 DamageDealt = kv.Value.DamageDealt,
                 BlockGained = kv.Value.BlockGained,
                 HpLost = kv.Value.HpLost,
+                DamageBySource = kv.Value.DamageBySource.Count > 0 ? new(kv.Value.DamageBySource) : null,
+                BlockBySource = kv.Value.BlockBySource.Count > 0 ? new(kv.Value.BlockBySource) : null,
+                HpLostBySource = kv.Value.HpLostBySource.Count > 0 ? new(kv.Value.HpLostBySource) : null,
             });
         }
+        return result;
+    }
+
+    // End-of-run sidecar: full run stats with breakdowns and combat snapshots.
+    internal static void Write(long startTime)
+    {
+        var path = SidecarPath(startTime);
+        if (path == null) return;
+        if (StatsTrackerData.Run.ByPlayer.Count == 0) return;
+
+        var state = RunManager.Instance?.DebugOnlyGetState();
+        var runScope = ToSidecarScope(StatsTrackerData.Run, state);
+
+        var side = new DmSidecar
+        {
+            RunTurns = StatsTrackerData.Run.PlayerTurns,
+            Players = runScope.Players,
+            Scopes = new() { ["run"] = runScope },
+            Combats = StatsTrackerData.CombatSnapshots.Count > 0
+                ? new(StatsTrackerData.CombatSnapshots) : null,
+        };
+
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
         File.WriteAllText(path, JsonSerializer.Serialize(side, _opts));
+        DeleteMidRunSidecar();
+    }
+
+    // Mid-run sidecar: Act + Run scopes + combat snapshots so far.
+    internal static void WriteMidRun()
+    {
+        var path = MidRunSidecarPath();
+        if (path == null) return;
+        if (StatsTrackerData.Run.ByPlayer.Count == 0 && StatsTrackerData.Act.ByPlayer.Count == 0) return;
+
+        var state = RunManager.Instance?.DebugOnlyGetState();
+        var side = new DmSidecar
+        {
+            RunTurns = StatsTrackerData.Run.PlayerTurns,
+            Players = ToSidecarScope(StatsTrackerData.Run, state).Players,
+            Scopes = new()
+            {
+                ["run"] = ToSidecarScope(StatsTrackerData.Run, state),
+                ["act"] = ToSidecarScope(StatsTrackerData.Act, state),
+                ["combat"] = ToSidecarScope(StatsTrackerData.Combat, state),
+            },
+            Combats = StatsTrackerData.CombatSnapshots.Count > 0
+                ? new(StatsTrackerData.CombatSnapshots) : null,
+        };
+
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        File.WriteAllText(path, JsonSerializer.Serialize(side, _opts));
+    }
+
+    internal static DmSidecar? ReadMidRun()
+    {
+        try
+        {
+            var path = MidRunSidecarPath();
+            if (path == null || !File.Exists(path)) return null;
+            return JsonSerializer.Deserialize<DmSidecar>(File.ReadAllText(path), _opts);
+        }
+        catch (Exception e)
+        {
+            MainFile.Logger.Warn($"StatsTracker mid-run read: {e.Message}");
+            return null;
+        }
+    }
+
+    internal static void DeleteMidRunSidecar()
+    {
+        try
+        {
+            var path = MidRunSidecarPath();
+            if (path != null && File.Exists(path))
+                File.Delete(path);
+        }
+        catch (Exception e)
+        {
+            MainFile.Logger.Warn($"StatsTracker mid-run delete: {e.Message}");
+        }
+    }
+
+    private static void RestoreScope(DmScopeStats target, DmSidecarScope source)
+    {
+        target.Reset();
+        target.PlayerTurns = source.PlayerTurns;
+        foreach (var p in source.Players)
+        {
+            if (!ulong.TryParse(p.NetId, out var netId)) continue;
+            var stats = target.Get(netId);
+            stats.DamageDealt = p.DamageDealt;
+            stats.BlockGained = p.BlockGained;
+            stats.HpLost = p.HpLost;
+            if (p.DamageBySource != null)
+                foreach (var kv in p.DamageBySource) stats.DamageBySource[kv.Key] = kv.Value;
+            if (p.BlockBySource != null)
+                foreach (var kv in p.BlockBySource) stats.BlockBySource[kv.Key] = kv.Value;
+            if (p.HpLostBySource != null)
+                foreach (var kv in p.HpLostBySource) stats.HpLostBySource[kv.Key] = kv.Value;
+        }
+    }
+
+    internal static void RestoreMidRun()
+    {
+        var sidecar = ReadMidRun();
+        if (sidecar?.Scopes == null) return;
+        if (sidecar.Scopes.TryGetValue("run", out var runScope))
+            RestoreScope(StatsTrackerData.Run, runScope);
+        if (sidecar.Scopes.TryGetValue("act", out var actScope))
+            RestoreScope(StatsTrackerData.Act, actScope);
+        if (sidecar.Scopes.TryGetValue("combat", out var combatScope))
+            RestoreScope(StatsTrackerData.Combat, combatScope);
+        if (sidecar.Combats != null)
+        {
+            StatsTrackerData.CombatSnapshots.Clear();
+            StatsTrackerData.CombatSnapshots.AddRange(sidecar.Combats);
+        }
+        // RunStarted fires after SetUpSaved*, so guard against the
+        // upcoming ResetAll wiping the data we just restored.
+        StatsTrackerData.RestoredFromSidecar = true;
+        StatsTrackerData.NotifyUpdated();
     }
 
     internal static DmSidecar? Read(long startTime)

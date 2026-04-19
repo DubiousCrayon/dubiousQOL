@@ -4,6 +4,7 @@ using dubiousQOL.Config;
 using Godot;
 using HarmonyLib;
 using MegaCrit.Sts2.Core.Assets;
+using MegaCrit.Sts2.Core.Commands;
 using MegaCrit.Sts2.Core.Helpers;
 using MegaCrit.Sts2.Core.Nodes.CommonUi;
 using MegaCrit.Sts2.Core.Nodes.GodotExtensions;
@@ -629,28 +630,87 @@ internal static class DubiousConfigModal
     }
 
     /// <summary>
-    /// Clones a game-native NTickbox from the live settings screen.
+    /// Clones the visual shell of a game-native NTickbox (no scripts) and
+    /// handles toggle logic manually. The source NCommonTooltipsTickbox has
+    /// an OnUntick override that NullRefs outside the settings screen, so we
+    /// strip scripts and drive the visuals ourselves.
     /// Falls back to a plain CheckBox if the source isn't available.
     /// </summary>
     private static Control CreateGameTickbox(bool initialValue, Action<bool> onChanged)
     {
         if (_sourceTickbox != null)
         {
-            var clone = (Control)_sourceTickbox.Duplicate(15);
+            // Duplicate(0) = visual hierarchy only, no scripts/signals.
+            // This avoids NCommonTooltipsTickbox.OnUntick() crashing on
+            // null _settingsScreen when used outside the game's settings.
+            var clone = (Control)_sourceTickbox.Duplicate(0);
             clone.CustomMinimumSize = new Vector2(320, 64);
             clone.SizeFlagsHorizontal = Control.SizeFlags.ShrinkEnd;
+            clone.MouseFilter = Control.MouseFilterEnum.Stop;
 
-            // IsTicked setter NREs before _Ready (children not resolved).
-            // Defer the set so it runs after the clone enters the scene tree.
-            if (!initialValue)
-                clone.CallDeferred("set", "IsTicked", false);
+            var tickedImg = clone.FindChild("Ticked", recursive: true, owned: false) as Control;
+            var notTickedImg = clone.FindChild("NotTicked", recursive: true, owned: false) as Control;
+            var visuals = clone.FindChild("TickboxVisuals", recursive: true, owned: false) as Control;
+            var baseScale = visuals?.Scale ?? Vector2.One;
+            // The shader material is shared across all clones from the same
+            // source — duplicate it so each tickbox has independent brightness.
+            if (visuals?.Material is ShaderMaterial shared)
+                visuals.Material = (ShaderMaterial)shared.Duplicate();
+            var hsv = visuals?.Material as ShaderMaterial;
 
-            // Toggled signal fires after OnRelease toggles IsTicked and plays SFX.
-            clone.Connect("Toggled", Callable.From<Variant>(_ =>
+            bool ticked = initialValue;
+            if (tickedImg != null) tickedImg.Visible = ticked;
+            if (notTickedImg != null) notTickedImg.Visible = !ticked;
+
+            // Emulate NTickbox hover/press/release visual effects.
+            Tween? activeTween = null;
+            void TweenVisuals(Vector2 targetScale, float targetV, double duration)
             {
-                bool ticked = (bool)clone.Get("IsTicked");
-                onChanged(ticked);
-            }));
+                activeTween?.Kill();
+                if (visuals == null) return;
+                activeTween = clone.CreateTween().SetParallel();
+                activeTween.TweenProperty(visuals, "scale", targetScale, duration);
+                if (hsv != null)
+                    activeTween.TweenMethod(
+                        Callable.From<float>(v => hsv.SetShaderParameter("v", v)),
+                        hsv.GetShaderParameter("v"), targetV, duration);
+            }
+
+            clone.MouseEntered += () =>
+            {
+                SfxCmd.Play("event:/sfx/ui/clicks/ui_hover");
+                TweenVisuals(baseScale * 1.05f, 1.2f, 0.05);
+            };
+            clone.MouseExited += () =>
+            {
+                TweenVisuals(baseScale, 1f, 0.5);
+            };
+
+            bool isPressed = false;
+            clone.GuiInput += inputEvent =>
+            {
+                if (inputEvent is InputEventMouseButton mb
+                    && mb.ButtonIndex == MouseButton.Left)
+                {
+                    if (mb.Pressed)
+                    {
+                        isPressed = true;
+                        TweenVisuals(baseScale * 0.95f, 0.8f, 0.5);
+                    }
+                    else if (isPressed)
+                    {
+                        isPressed = false;
+                        ticked = !ticked;
+                        if (tickedImg != null) tickedImg.Visible = ticked;
+                        if (notTickedImg != null) notTickedImg.Visible = !ticked;
+                        SfxCmd.Play(ticked
+                            ? "event:/sfx/ui/clicks/ui_checkbox_on"
+                            : "event:/sfx/ui/clicks/ui_checkbox_off");
+                        TweenVisuals(baseScale * 1.05f, 1.2f, 0.05);
+                        onChanged(ticked);
+                    }
+                }
+            };
 
             return clone;
         }
