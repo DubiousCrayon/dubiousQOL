@@ -85,13 +85,15 @@ internal static class SourceIconResolver
         ["Glass Orb"]     = new Color(0.20f, 0.75f, 0.75f),
     };
 
-    // Per-debuff colors.
-    private static readonly Dictionary<string, (Type powerType, Color color)> DebuffMap = new()
+    // Power-based damage sources — both debuff ticks and buff-triggered damage.
+    private static readonly Dictionary<string, (Type powerType, Color color)> PowerSourceMap = new()
     {
         ["Poison"]   = (typeof(PoisonPower),   new Color(0.50f, 0.80f, 0.30f)),
         ["Doom"]     = (typeof(DoomPower),     new Color(0.45f, 0.20f, 0.65f)),
         ["Haunt"]    = (typeof(HauntPower),    new Color(0.40f, 0.55f, 0.80f)),
         ["Strangle"] = (typeof(StranglePower), new Color(0.70f, 0.25f, 0.25f)),
+        ["Reflect"]  = (typeof(ReflectPower),  new Color(0.80f, 0.70f, 0.30f)),
+        ["Thorns"]   = (typeof(ThornsPower),   new Color(0.60f, 0.75f, 0.35f)),
     };
 
     // Orb type map for icon lookup.
@@ -114,7 +116,7 @@ internal static class SourceIconResolver
         }
 
         var result = TryOrb(sourceName)
-                  ?? TryDebuff(sourceName)
+                  ?? TryPowerSource(sourceName)
                   ?? TryCard(sourceName)
                   ?? TryRelic(sourceName)
                   ?? TryPotion(sourceName)
@@ -149,9 +151,9 @@ internal static class SourceIconResolver
         return new ResolvedSource { Icon = icon, Kind = SourceKind.Orb, BarColor = color, IconScale = 1f };
     }
 
-    private static ResolvedSource? TryDebuff(string name)
+    private static ResolvedSource? TryPowerSource(string name)
     {
-        if (!DebuffMap.TryGetValue(name, out var entry)) return null;
+        if (!PowerSourceMap.TryGetValue(name, out var entry)) return null;
 
         Texture2D? icon = null;
         try

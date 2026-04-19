@@ -137,6 +137,14 @@ internal static class StatsTrackerData
         (typeof(PotionShapedRock), nameof(PotionShapedRock.OnUse)),
     };
 
+    // Powers that deal damage with the player as dealer and no cardSource.
+    // Same label-lookup pattern as orbs; prefix only (async methods).
+    private static readonly (Type type, string method, string label)[] DamagePowerPatches =
+    {
+        (typeof(ReflectPower), nameof(ReflectPower.AfterDamageReceived), "Reflect"),
+        (typeof(ThornsPower), nameof(ThornsPower.BeforeDamageReceived), "Thorns"),
+    };
+
     private static readonly (Type type, string method, string label)[] DamageOrbPatches =
     {
         (typeof(LightningOrb), nameof(LightningOrb.Passive), "Lightning Orb"),
@@ -158,9 +166,10 @@ internal static class StatsTrackerData
         (typeof(FrostOrb), nameof(FrostOrb.Evoke), "Frost Orb"),
     };
 
-    // Lookup for orb label injection — populated during PatchSourceAttribution,
-    // read by OrbDamagePrefix/OrbBlockPrefix via __originalMethod.
+    // Lookup for label injection — populated during PatchSourceAttribution,
+    // read by prefix methods via __originalMethod.
     private static readonly Dictionary<MethodBase, string> _damageOrbLabels = new();
+    private static readonly Dictionary<MethodBase, string> _damagePowerLabels = new();
     private static readonly Dictionary<MethodBase, string> _blockOrbLabels = new();
 
     // Shared prefix/postfix methods used by manual Harmony patches.
@@ -173,6 +182,11 @@ internal static class StatsTrackerData
     public static void OrbDamagePrefix(MethodBase __originalMethod)
     {
         if (_damageOrbLabels.TryGetValue(__originalMethod, out var label))
+            CurrentDamageSource = label;
+    }
+    public static void PowerDamagePrefix(MethodBase __originalMethod)
+    {
+        if (_damagePowerLabels.TryGetValue(__originalMethod, out var label))
             CurrentDamageSource = label;
     }
     public static void PotionBlockPrefix(PotionModel __instance) =>
@@ -199,6 +213,15 @@ internal static class StatsTrackerData
         // PendingDamageSource snapshot in PatchDamageDealer.Prefix handles cleanup.
         foreach (var (type, method) in DamagePotionPatches)
             harmony.Patch(AccessTools.Method(type, method), prefix: potionPfx);
+
+        // Power damage methods are async — prefix only, same as potions.
+        var powerDmgPfx = new HarmonyMethod(AccessTools.Method(typeof(StatsTrackerData), nameof(PowerDamagePrefix)));
+        foreach (var (type, method, label) in DamagePowerPatches)
+        {
+            var original = AccessTools.Method(type, method);
+            _damagePowerLabels[original] = label;
+            harmony.Patch(original, prefix: powerDmgPfx);
+        }
 
         var orbDmgPfx = new HarmonyMethod(AccessTools.Method(typeof(StatsTrackerData), nameof(OrbDamagePrefix)));
         foreach (var (type, method, label) in DamageOrbPatches)
