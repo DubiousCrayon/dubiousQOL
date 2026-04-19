@@ -166,11 +166,19 @@ internal static class StatsTrackerData
         (typeof(FrostOrb), nameof(FrostOrb.Evoke), "Frost Orb"),
     };
 
+    // Powers that grant block with null CardPlay (not via a card play).
+    // Prefix only (async methods — postfix fires too early).
+    private static readonly (Type type, string method, string label)[] BlockPowerPatches =
+    {
+        (typeof(AfterimagePower), nameof(AfterimagePower.AfterCardPlayed), "Afterimage"),
+    };
+
     // Lookup for label injection — populated during PatchSourceAttribution,
     // read by prefix methods via __originalMethod.
     private static readonly Dictionary<MethodBase, string> _damageOrbLabels = new();
     private static readonly Dictionary<MethodBase, string> _damagePowerLabels = new();
     private static readonly Dictionary<MethodBase, string> _blockOrbLabels = new();
+    private static readonly Dictionary<MethodBase, string> _blockPowerLabels = new();
 
     // Shared prefix/postfix methods used by manual Harmony patches.
     public static void RelicDamagePrefix(RelicModel __instance) =>
@@ -194,6 +202,11 @@ internal static class StatsTrackerData
     public static void OrbBlockPrefix(MethodBase __originalMethod)
     {
         if (_blockOrbLabels.TryGetValue(__originalMethod, out var label))
+            CurrentBlockSource = label;
+    }
+    public static void PowerBlockPrefix(MethodBase __originalMethod)
+    {
+        if (_blockPowerLabels.TryGetValue(__originalMethod, out var label))
             CurrentBlockSource = label;
     }
     public static void BlockSourcePostfix() =>
@@ -238,6 +251,15 @@ internal static class StatsTrackerData
             var original = AccessTools.Method(type, method);
             _blockOrbLabels[original] = label;
             harmony.Patch(original, prefix: orbBlkPfx, postfix: blkPost);
+        }
+
+        // Block powers: prefix only (async methods — postfix fires too early).
+        var powerBlkPfx = new HarmonyMethod(AccessTools.Method(typeof(StatsTrackerData), nameof(PowerBlockPrefix)));
+        foreach (var (type, method, label) in BlockPowerPatches)
+        {
+            var original = AccessTools.Method(type, method);
+            _blockPowerLabels[original] = label;
+            harmony.Patch(original, prefix: powerBlkPfx);
         }
 
         // Block potions: prefix only (async OnUse — postfix fires too early).

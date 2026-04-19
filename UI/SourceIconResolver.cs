@@ -92,8 +92,9 @@ internal static class SourceIconResolver
         ["Doom"]     = (typeof(DoomPower),     new Color(0.45f, 0.20f, 0.65f)),
         ["Haunt"]    = (typeof(HauntPower),    new Color(0.40f, 0.55f, 0.80f)),
         ["Strangle"] = (typeof(StranglePower), new Color(0.70f, 0.25f, 0.25f)),
-        ["Reflect"]  = (typeof(ReflectPower),  new Color(0.80f, 0.70f, 0.30f)),
-        ["Thorns"]   = (typeof(ThornsPower),   new Color(0.60f, 0.75f, 0.35f)),
+        ["Reflect"]    = (typeof(ReflectPower),    new Color(0.80f, 0.70f, 0.30f)),
+        ["Thorns"]     = (typeof(ThornsPower),     new Color(0.60f, 0.75f, 0.35f)),
+        ["Afterimage"] = (typeof(AfterimagePower), new Color(0.40f, 0.65f, 0.90f)),
     };
 
     // Orb type map for icon lookup.
@@ -225,18 +226,30 @@ internal static class SourceIconResolver
 
     private static ResolvedSource? TryRelic(string name)
     {
+        RelicModel? suffixMatch = null;
         foreach (var relic in ModelDb.AllRelics)
         {
             string title;
             try { title = relic.Title.GetFormattedText(); }
             catch { continue; }
 
-            if (!string.Equals(title, name, StringComparison.Ordinal)) continue;
-            Texture2D? icon = null;
-            try { icon = relic.Icon; } catch { }
-            return new ResolvedSource { Icon = icon, Kind = SourceKind.Relic, BarColor = ColorRelic, IconScale = 1f };
+            if (string.Equals(title, name, StringComparison.Ordinal))
+                return MakeRelicSource(relic);
+
+            // Wax relics prepend a localized prefix (e.g. "Wax Letter Opener").
+            // Canonical ModelDb entries don't have the prefix, so fall back to
+            // suffix matching when the exact match fails.
+            if (suffixMatch == null && name.Length > title.Length && name.EndsWith(title, StringComparison.Ordinal))
+                suffixMatch = relic;
         }
-        return null;
+        return suffixMatch != null ? MakeRelicSource(suffixMatch) : null;
+    }
+
+    private static ResolvedSource MakeRelicSource(RelicModel relic)
+    {
+        Texture2D? icon = null;
+        try { icon = relic.Icon; } catch { }
+        return new ResolvedSource { Icon = icon, Kind = SourceKind.Relic, BarColor = ColorRelic, IconScale = 1f };
     }
 
     private static ResolvedSource? TryPotion(string name)
@@ -280,10 +293,9 @@ internal static class SourceIconResolver
                     string slug = _bossEncounterSlugs?.GetValueOrDefault(monster.Id.Entry)
                                ?? monster.Id.Entry.ToLowerInvariant();
                     string path = $"res://images/ui/run_history/{slug}.png";
-                    icon = ResourceLoader.Exists(path)
-                        ? SafeLoadTexture(path)
-                        : LoadMonsterIcon();
-                    scale = 1f;
+                    var bossIcon = SafeLoadTexture(path);
+                    icon = bossIcon ?? LoadEliteIcon() ?? LoadMonsterIcon();
+                    scale = bossIcon != null ? 1f : RunHistoryIconScale;
                 }
                 else if (roomType == RoomType.Elite)
                 {
