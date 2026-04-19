@@ -9,13 +9,16 @@ MainFile.cs              ModInitializer. Loads config, runs Harmony.PatchAll().
 DubiousConfig.cs         Per-feature on/off flags, JSON-persisted to user_data/mod_configs/dubiousQOL.cfg.
 dubiousQOL.csproj        net9.0, refs sts2.dll (publicized) + 0Harmony.dll. Post-build copies .dll into the game's mods/ folder.
 mod_manifest.json        has_pck=true, has_dll=true.
-Patches/                 One file per feature. File name = feature name.
+Patches/                 One subdirectory per feature. Harmony patches + feature-specific logic.
+UI/                      Shared UI building blocks (see "Shared libraries" below).
+UI/Custom/               Custom-built widgets from raw Godot controls (not game-asset clones).
+Utilities/               Shared non-UI utilities (reflection, I/O, combat math, node helpers).
 dubiousQOL/fonts/        Embedded fonts loaded via res://dubiousQOL/fonts/...
 dubiousQOL/images/       Embedded sprites.
 .tmp/                    Gitignored. Decompiled third-party mods for reference (see reference_decompiled_mods memory).
 ```
 
-Every feature lives in `Patches/<Name>.cs`, early-returns on its `DubiousConfig.<Name>` flag, and is otherwise self-contained. Adding a feature = new file + new flag + `harmony.PatchAll()` picks it up automatically.
+Every feature lives in `Patches/<Name>/`, early-returns on its config flag, and uses shared `UI/`/`Utilities/` for anything reusable. Adding a feature = new subdirectory + new config + `harmony.PatchAll()` picks it up automatically.
 
 ## Build + deploy
 
@@ -42,45 +45,87 @@ Other useful MCP tools:
 - **No comments that narrate** — only write a comment if the *why* is non-obvious (a timing constraint, a reflection workaround, a game-engine quirk the reader would otherwise trip on).
 - **Commit style:** short imperative subject, one paragraph body explaining the *what* and notable constraints. No Co-Authored-By (see feedback_no_coauthor memory).
 
+## Shared libraries — USE THEM FIRST
+
+**This is a hard rule:** before writing any UI construction, node manipulation, styling, reflection, I/O, or combat logic in a feature file, check `UI/` and `Utilities/` for an existing helper. If one exists, use it. If one doesn't exist but the functionality is generic enough that another mod or feature could use it, **create it in the shared library first**, then call it from the feature.
+
+Feature files in `Patches/` should contain only Harmony patches and feature-specific orchestration. Anything reusable belongs in `UI/` or `Utilities/`.
+
+### UI/ — game-asset cloning and shared UI construction
+
+| File | What it provides |
+|------|------------------|
+| `ButtonHelper.cs` | Hover/click SFX wiring, anchor positioning, toggle state, game arrow cloning (`CloneGameArrow` + `ResetClonedArrow`) |
+| `CloneHelper.cs` | Named `Duplicate()` flag constants (`VisualOnly`, `ScriptsOnly`, `Full`, etc.) + typed `Clone<T>()` / `CloneWithMaterial<T>()` |
+| `FontHelper.cs` | Font loading by string identifier (`"fightkid"`, `"kreon-bold"`, etc.), caching, `GetPath()` for BBCode |
+| `ModalHelper.cs` | Back buttons (scene preload or clone), error panels, escape handling, confirmation popups |
+| `StyleHelper.cs` | `MakeStyleBox`, `CreateDarkPanel`, `CreateDivider`, `CreateSectionHeader`, `CreateSubSectionHeader`, `CreateDimLabel` |
+| `TabHelper.cs` | Tab acquisition from game scenes, cloning, `CreateTabBar()`, `WireTabSwitching()` |
+| `Theme.cs` | Shared design tokens — panel colors, text colors, stat colors, hover values |
+| `WidgetHelper.cs` | Game-cloned settings widgets: tickbox, slider, button, info label, settings row |
+| `ActNameLabel.cs` | Per-act styled MegaLabel (scene extraction from act_banner), `ApplyStyle()`, `GetMargins()` |
+| `RarityHelper.cs` | `RarityColors` (relic/potion color maps), `RarityIconGenerator` (procedural diamond icons), `CompendiumHeaderRecolor` (BBCode tag swapping) |
+| `SpriteFrameLoader.cs` | Numbered PNG frame loading with caching, `FrameIndexAt()` for animation timing |
+| `SourceIconResolver.cs` | Entity name → icon texture + semantic color resolution (cards, relics, potions, monsters, orbs, debuffs) |
+
+### UI/Custom/ — original widgets (not game clones)
+
+| File | What it provides |
+|------|------------------|
+| `Widgets.cs` | `StyleButton`, `StyleTabButton`, `CreateArrowButton`, `CreateToggleButton`, `CreateStyledRichLabel` (overlay text), `CreateArchLabel` (circular arc text) |
+
+### Utilities/ — non-UI shared logic
+
+| File | What it provides |
+|------|------------------|
+| `NodeHelper.cs` | `FindDescendant<T>()`, `ExtractFromScene<T>()` (scene plucking), `ExtractTextureFromScene()` (texture reads from scenes) |
+| `ReflectionHelper.cs` | `SetField`, `GetField`, `SetProperty` wrappers with BindingFlags |
+| `SidecarIO.cs` | Profile-scoped path resolution, `WriteJson<T>`, `ReadJson<T>`, `TryDelete` |
+| `CombatPredictor.cs` | `PredictIncoming()` (damage + HP loss), `PredictEndOfTurnBlockGain()`, `ReadPreviewDamage/HpLoss()`, `GetBeatingRemnantCap()` |
+
 ## Patterns that recur
 
-**Adding a feature toggle:**
-1. Add `public static bool FooBar = true;` in `DubiousConfig.cs`.
-2. Add `if (dict.TryGetValue(nameof(FooBar), out var x)) FooBar = x;` in `Load()`.
-3. Add the same key in the `Save()` dict.
-4. In the patch: `if (!DubiousConfig.FooBar) return;` at the top of the postfix/prefix.
-5. ModConfigUI.cs auto-picks up the flag if it's added to its known-features list — check that file when adding.
+**Adding a feature:**
+1. Create `Patches/<Name>/` with the Harmony patch file(s).
+2. Create a `<Name>Config.cs` subclass of `FeatureConfig` — set `Id`, `Name`, `Description`, `EnabledByDefault`. Override `DefineEntries(EntryBuilder b)` for any sub-settings.
+3. In the patch: `if (!<Name>Config.Instance.Enabled) return;` at the top of the postfix/prefix.
+4. `ConfigRegistry` auto-discovers all `FeatureConfig` subclasses via assembly reflection. `ModConfigUI` iterates `ConfigRegistry.All` — no manual registration needed.
+5. Update the feature map table in this file.
 
-**UI reuse via scene cloning:** the cleanest way to get a styled Godot control is to instantiate the game's own `.tscn`, pluck the node you want, reparent it, then `QueueFree()` the rest. See `ActNameLabel.CreateBlank()` for the canonical template. For buttons that need game styling (back button, arrows), `Node.Duplicate(4)` (flags=4 = DUPLICATE_SCRIPTS only, skips the source's signal bindings) is preferred over subclassing.
+**Removing a feature:**
+1. Delete the entire `Patches/<Name>/` directory (patch files, config class, `.uid` files).
+2. Remove the feature's row from the feature map table in this file.
+3. That's it — `ConfigRegistry` discovers via reflection, so removing the class removes it from ModConfigUI automatically. The user's stale `{Id}.json` config file on disk is harmless and ignored.
 
-**Modals:** `NModalContainer.Instance.Add(control, showBackstop: false)` opens a modal. The default `showBackstop: true` renders a 0.85-alpha black ColorRect underneath — opt out if you want the screen behind to show through.
+**Scene plucking:** use `NodeHelper.ExtractFromScene<T>(scenePath, nodePath)` to extract a node from a game scene, or `NodeHelper.ExtractTextureFromScene(scenePath, candidatePaths)` to read a texture. See `ActNameLabel.CreateBlank()` for the canonical pattern. Never write inline instantiate→find→detach→QueueFree boilerplate in feature files.
 
-**Hover/click SFX:** NButton subclasses get `event:/sfx/ui/clicks/ui_hover` on focus and `event:/sfx/ui/clicks/ui_click` on mouse-*down* for free. Raw Godot `TextureButton`/`Button` do NOT — wire them by hand:
-```csharp
-btn.MouseEntered += () => SfxCmd.Play("event:/sfx/ui/clicks/ui_hover");
-btn.ButtonDown   += () => SfxCmd.Play("event:/sfx/ui/clicks/ui_click"); // NOT Pressed — that's release-time
-```
+**Node cloning:** use `CloneHelper.Clone<T>(source, CloneHelper.ScriptsOnly)` with named flag constants. For buttons/arrows, use `ButtonHelper.CloneGameArrow()` + `ButtonHelper.ResetClonedArrow()`. For tabs, use `TabHelper.CreateTab()`.
+
+**Modals:** use `ModalHelper.CreateBackButton(parent, name)` for back buttons, `ModalHelper.ShowConfirmation()` for popups. `NModalContainer.Instance.Add(control, showBackstop: false)` opens a modal.
+
+**Hover/click SFX:** use `ButtonHelper.WireHoverAndClickSfx(btn, btnSize)` for raw Godot buttons. NButton subclasses get this for free.
+
+**Styling:** use `StyleHelper.MakeStyleBox()`, `StyleHelper.CreateDarkPanel()`, `StyleHelper.CreateDivider()`. Use `Theme.*` for color tokens. For custom-built toggle/arrow buttons, use `Widgets.*` from `UI/Custom/`.
 
 **Heavy click actions:** if the Pressed handler does expensive synchronous work (instantiating scenes, NMapScreen takes ~50ms), defer it via `Callable.From(() => { ... }).CallDeferred()` so the audio event flushes in the current frame.
 
-**Scene _Ready timing:** a cloned/duplicated node's `_Ready` does not fire until it's in the scene tree. If you call `.Enable()` or similar on a NButton clone before it's added, protected fields like `_outline` are null. `AddChild(clone)` first, then `Enable()`.
+**Scene _Ready timing:** a cloned/duplicated node's `_Ready` does not fire until it's in the scene tree. If you call `.Enable()` or similar on a NButton clone before it's added, protected fields like `_outline` are null. `AddChild(clone)` first, then `Enable()`. For arrows, this means `CloneGameArrow()` before AddChild, `ResetClonedArrow()` after.
 
 ## Feature map (current)
 
-| File | What it does |
-|------|--------------|
-| `ActNameDisplay.cs` | Per-act styled label next to the top-bar boss icon. Also exposes `ActNameLabel` helpers used by other features. |
-| `DeckSearch.cs` | Text search on the mid-run deck view. |
-| `IncomingDamageDisplay.cs` | Aggregated incoming damage number next to the HP bar. |
-| `MapHistory.cs` | Captures per-act ActMap + drawings + visited coords, writes `{StartTime}.maps.json` sidecar outside the `history/` dir (game's loader rejects foreign files there). |
-| `MapHistoryButton.cs` | Map-icon button on the run history screen; opens the viewer modal. |
-| `MapHistoryScreenGuard.cs` | Harmony prefixes that skip singletons-only paths in NMapScreen so it can be instantiated outside a run. |
-| `MapHistoryViewer.cs` | The modal itself. Reuses the real `NMapScreen` for pixel-accurate replay; side arrows cycle acts; NBackButton cloned; MapLegend hidden (overlaps right arrow). |
-| `ModConfigUI.cs` | In-game toggle UI under settings. Must be updated when adding a feature flag. |
-| `RarityDisplay.cs` | Shows rarity labels on card rewards. |
-| `SkipSplash.cs` | Skips the MegaCrit intro video. |
-| `UnifiedSavePath.cs` | Forces modded and unmodded saves to share the same folder. |
-| `WinStreakDisplay.cs` | Win-streak flame badge on the top bar. |
+Each feature lives in `Patches/<Name>/`. Shared helpers live in `UI/` and `Utilities/`.
+
+| Feature | Files | What it does |
+|---------|-------|--------------|
+| `ActNameDisplay/` | patch + config | Per-act styled label next to the top-bar boss icon. Uses `UI/ActNameLabel.cs`. |
+| `DeckSearch/` | patch + config | Text search on the mid-run deck view. Uses `NodeHelper.ExtractFromScene`. |
+| `IncomingDamageDisplay/` | patch + config | Aggregated incoming damage/HP loss next to the HP bar. Uses `CombatPredictor`, `Widgets.CreateStyledRichLabel`. |
+| `MapHistory/` | 4 files + config | Captures per-act maps, writes sidecar JSON. Button + modal viewer with game arrows. Uses `ButtonHelper`, `ModalHelper`, `NodeHelper`, `SidecarIO`. |
+| `ModConfigUI/` | patch | In-game toggle UI under settings. Uses `CloneHelper`, `ModalHelper`, `TabHelper`, `WidgetHelper`, `StyleHelper`, `Theme`. |
+| `RarityDisplay/` | patch + config | Rarity coloring on compendium headers and hover tips. Uses `UI/RarityHelper.cs`. |
+| `StatsTracker/` | 5 files + config | Per-combat stats overlay + run history viewer. Uses `ButtonHelper`, `ModalHelper`, `TabHelper`, `StyleHelper`, `Theme`, `SidecarIO`, `Widgets`. |
+| `UnifiedSavePath/` | patch + config | Forces modded and unmodded saves to share the same folder. |
+| `WinStreakDisplay/` | patch + config | Win-streak flame badge on the top bar. Uses `FontHelper`, `SpriteFrameLoader`, `Widgets.CreateArchLabel`. |
 
 ## Gotchas collected from prior sessions
 

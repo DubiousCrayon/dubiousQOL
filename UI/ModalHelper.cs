@@ -5,21 +5,44 @@ using MegaCrit.Sts2.Core.Helpers;
 using MegaCrit.Sts2.Core.Nodes.CommonUi;
 using MegaCrit.Sts2.Core.Nodes.GodotExtensions;
 using MegaCrit.Sts2.Core.Nodes.Multiplayer;
+using MegaCrit.Sts2.Core.Nodes.Screens.ScreenContext;
+
+using dubiousQOL.Utilities;
 
 namespace dubiousQOL.UI;
 
 /// <summary>
 /// Shared modal scaffolding: error panels, escape key handling, back button creation.
 /// </summary>
-internal static class ModalHelper
+internal static partial class ModalHelper
 {
+    /// <summary>
+    /// Returns a valid NModalContainer, preferring the static Instance but
+    /// falling back to a scene-tree search when Instance is stale (freed
+    /// during scene transitions). Returns null if none exists.
+    /// </summary>
+    public static NModalContainer? GetModal()
+    {
+        var inst = NModalContainer.Instance;
+        if (inst != null) return inst;
+
+        // Instance is null or freed — try to find it in the tree.
+        try
+        {
+            var root = ((SceneTree)Engine.GetMainLoop()).Root;
+            return NodeHelper.FindDescendant<NModalContainer>(root);
+        }
+        catch { return null; }
+    }
+
     /// <summary>
     /// Creates a centered error panel (440x160) with a message and Close button
     /// that dismisses the modal via NModalContainer.Instance?.Clear().
+    /// Implements IScreenContext so NModalContainer.Add accepts it.
     /// </summary>
     public static Control CreateErrorPanel(string controlName, string message)
     {
-        var root = new Control { Name = controlName, MouseFilter = Control.MouseFilterEnum.Stop };
+        var root = new ModalPanel { Name = controlName, MouseFilter = Control.MouseFilterEnum.Stop };
         root.SetAnchorsPreset(Control.LayoutPreset.FullRect);
 
         var frame = new PanelContainer { Name = "Frame" };
@@ -215,5 +238,14 @@ internal static class ModalHelper
         }));
 
         return wrapper;
+    }
+
+    /// <summary>
+    /// Minimal Control that implements IScreenContext so NModalContainer.Add
+    /// can cast it without throwing InvalidCastException.
+    /// </summary>
+    internal partial class ModalPanel : Control, IScreenContext
+    {
+        public Control? DefaultFocusedControl => null;
     }
 }

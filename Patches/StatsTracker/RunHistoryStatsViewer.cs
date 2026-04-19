@@ -21,8 +21,12 @@ internal static class RunHistoryStatsViewerModal
 {
     public static void Open(DmSidecar sidecar)
     {
-        var modal = NModalContainer.Instance;
-        if (modal == null) return;
+        var modal = ModalHelper.GetModal();
+        if (modal == null)
+        {
+            MainFile.Logger.Warn("RunHistoryStats: NModalContainer not found");
+            return;
+        }
 
         if (sidecar.Scopes == null && (sidecar.Combats == null || sidecar.Combats.Count == 0))
         {
@@ -30,7 +34,7 @@ internal static class RunHistoryStatsViewerModal
             return;
         }
 
-        try { modal.Add(new RunHistoryStatsViewer(sidecar), showBackstop: true); }
+        try { modal.Add(new RunHistoryStatsViewer(sidecar), showBackstop: false); }
         catch (Exception e)
         {
             MainFile.Logger.Warn($"RunHistoryStats open: {e.Message}\n{e.StackTrace}");

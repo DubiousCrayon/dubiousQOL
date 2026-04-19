@@ -106,7 +106,12 @@ internal static class SourceIconResolver
     public static ResolvedSource Resolve(string sourceName)
     {
         if (_cache.TryGetValue(sourceName, out var cached))
-            return cached;
+        {
+            // Textures from ModelDb can be disposed during scene transitions.
+            if (cached.Icon == null || GodotObject.IsInstanceValid(cached.Icon))
+                return cached;
+            _cache.Remove(sourceName);
+        }
 
         var result = TryOrb(sourceName)
                   ?? TryDebuff(sourceName)
@@ -121,7 +126,12 @@ internal static class SourceIconResolver
         return result;
     }
 
-    public static void ClearCache() => _cache.Clear();
+    public static void ClearCache()
+    {
+        _cache.Clear();
+        _attackIcon = _aoeIcon = _defendIcon = _skillIcon = null;
+        _powerIcon = _monsterIcon = _eliteIcon = _minionIcon = null;
+    }
 
     private static ResolvedSource? TryOrb(string name)
     {

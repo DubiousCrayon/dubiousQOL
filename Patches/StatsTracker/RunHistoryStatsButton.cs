@@ -123,9 +123,17 @@ public static class PatchRunHistoryStatsButton
         {
             try
             {
-                if (CurrentStartTime == 0) return;
+                if (CurrentStartTime == 0)
+                {
+                    MainFile.Logger.Warn("RunHistoryStatsButton: CurrentStartTime is 0");
+                    return;
+                }
                 var sidecar = StatsTrackerIO.Read(CurrentStartTime);
-                if (sidecar == null) return;
+                if (sidecar == null)
+                {
+                    MainFile.Logger.Warn($"RunHistoryStatsButton: sidecar null for {CurrentStartTime}");
+                    return;
+                }
                 RunHistoryStatsViewerModal.Open(sidecar);
             }
             catch (Exception e) { MainFile.Logger.Warn($"RunHistoryStatsButton open: {e.Message}\n{e.StackTrace}"); }

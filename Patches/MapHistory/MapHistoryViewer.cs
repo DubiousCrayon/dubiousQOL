@@ -38,8 +38,12 @@ internal static class MapHistoryViewerModal
 {
     public static void Open(RunHistory history, Node? runHistoryScreen = null)
     {
-        var modal = NModalContainer.Instance;
-        if (modal == null) return;
+        var modal = ModalHelper.GetModal();
+        if (modal == null)
+        {
+            MainFile.Logger.Warn("MapHistory: NModalContainer not found");
+            return;
+        }
         var sidecar = MapHistoryIO.Read(history.StartTime);
         if (sidecar == null || sidecar.Acts.Count == 0)
         {
