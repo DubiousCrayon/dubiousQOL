@@ -6,12 +6,14 @@ using MegaCrit.Sts2.Core.Helpers;
 using MegaCrit.Sts2.addons.mega_text;
 using MegaCrit.sts2.Core.Nodes.TopBar;
 
+using dubiousQOL.UI;
+
 namespace dubiousQOL.Patches;
 
 internal struct ActStyle
 {
     public Color Color;
-    public string FontPath;
+    public string FontId;        // FontHelper identifier (e.g., "mighty-souly")
     public int MaxFontSize;      // per-act max; some custom fonts render smaller and need a boost
     public int GlyphSpacing;     // extra pixels between glyphs (FontVariation.SpacingGlyph)
     public int MarginLeft;       // extra px between boss icon and text (MarginContainer margin_left)
@@ -23,17 +25,17 @@ internal static class ActNameStyle
     // Act-themed colors + fonts. Keys match ActModel.Id.Entry (lowercased class name).
     private static readonly Dictionary<string, ActStyle> Styles = new()
     {
-        { "overgrowth", new ActStyle { Color = new Color(0.38f, 0.78f, 0.30f), FontPath = "res://dubiousQOL/fonts/Mighty Souly.otf",     MaxFontSize = 30, GlyphSpacing = 0, MarginLeft = 0,  MarginTop = -6 } },
-        { "underdocks", new ActStyle { Color = new Color(0.22f, 0.60f, 0.72f), FontPath = "res://dubiousQOL/fonts/BeachFlower-Bold.otf", MaxFontSize = 34, GlyphSpacing = 0, MarginLeft = 0,  MarginTop = 0 } },
-        { "hive",       new ActStyle { Color = new Color(0.98f, 0.75f, 0.20f), FontPath = "res://dubiousQOL/fonts/Kaleo-Regular.ttf",    MaxFontSize = 34, GlyphSpacing = 2, MarginLeft = 0,  MarginTop = 0 } },
-        { "glory",      new ActStyle { Color = new Color(0.80f, 0.40f, 0.90f), FontPath = "res://dubiousQOL/fonts/SANDEN.ttf",           MaxFontSize = 30, GlyphSpacing = 0, MarginLeft = 0, MarginTop = 0 } },
+        { "overgrowth", new ActStyle { Color = new Color(0.38f, 0.78f, 0.30f), FontId = "mighty-souly",  MaxFontSize = 30, GlyphSpacing = 0, MarginLeft = 0,  MarginTop = -6 } },
+        { "underdocks", new ActStyle { Color = new Color(0.22f, 0.60f, 0.72f), FontId = "beach-flower",  MaxFontSize = 34, GlyphSpacing = 0, MarginLeft = 0,  MarginTop = 0 } },
+        { "hive",       new ActStyle { Color = new Color(0.98f, 0.75f, 0.20f), FontId = "kaleo",         MaxFontSize = 34, GlyphSpacing = 2, MarginLeft = 0,  MarginTop = 0 } },
+        { "glory",      new ActStyle { Color = new Color(0.80f, 0.40f, 0.90f), FontId = "sanden",        MaxFontSize = 30, GlyphSpacing = 0, MarginLeft = 0, MarginTop = 0 } },
     };
 
     public static ActStyle For(string idEntry)
     {
         if (Styles.TryGetValue(idEntry.ToLowerInvariant(), out var style))
             return style;
-        return new ActStyle { Color = Godot.Colors.White, FontPath = "", MaxFontSize = 34 };
+        return new ActStyle { Color = Godot.Colors.White, FontId = "", MaxFontSize = 34 };
     }
 }
 
@@ -73,8 +75,8 @@ internal static class ActNameLabel
     public static void ApplyStyle(MegaLabel label, string actIdEntry, string title, int? maxFontSizeOverride = null)
     {
         var style = ActNameStyle.For(actIdEntry);
-        var baseFont = string.IsNullOrEmpty(style.FontPath) ? null
-            : ResourceLoader.Load<Font>(style.FontPath, null, ResourceLoader.CacheMode.Reuse);
+        var baseFont = string.IsNullOrEmpty(style.FontId) ? null
+            : FontHelper.Load(style.FontId);
         if (baseFont != null)
         {
             var variation = new FontVariation { BaseFont = baseFont, SpacingGlyph = style.GlyphSpacing };

@@ -7,6 +7,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using Godot;
 using dubiousQOL.UI;
+using dubiousQOL.Utilities;
 using HarmonyLib;
 using MegaCrit.Sts2.Core.Combat;
 using MegaCrit.Sts2.Core.Combat.History;
@@ -686,32 +687,11 @@ internal static class StatsTrackerIO
         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
     };
 
-    private static string? BasePath()
-    {
-        try
-        {
-            int profileId = SaveManager.Instance.CurrentProfileId;
-            string userPath = UserDataPathProvider.GetProfileScopedPath(profileId, UserDataPathProvider.SavesDir);
-            return Path.Combine(ProjectSettings.GlobalizePath(userPath), Dir);
-        }
-        catch (Exception e)
-        {
-            MainFile.Logger.Warn($"StatsTracker path resolve: {e.Message}");
-            return null;
-        }
-    }
+    internal static string? SidecarPath(long startTime) =>
+        SidecarIO.ResolvePath(Dir, startTime + Suffix);
 
-    internal static string? SidecarPath(long startTime)
-    {
-        var baseDir = BasePath();
-        return baseDir != null ? Path.Combine(baseDir, startTime + Suffix) : null;
-    }
-
-    internal static string? MidRunSidecarPath()
-    {
-        var baseDir = BasePath();
-        return baseDir != null ? Path.Combine(baseDir, MidRunFile) : null;
-    }
+    internal static string? MidRunSidecarPath() =>
+        SidecarIO.ResolvePath(Dir, MidRunFile);
 
     internal static DmSidecarScope ToSidecarScope(DmScopeStats scope, RunState? state)
     {
@@ -755,8 +735,7 @@ internal static class StatsTrackerIO
                 ? new(StatsTrackerData.CombatSnapshots) : null,
         };
 
-        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-        File.WriteAllText(path, JsonSerializer.Serialize(side, _opts));
+        SidecarIO.WriteJson(path, side, _opts);
         DeleteMidRunSidecar();
     }
 
@@ -782,37 +761,19 @@ internal static class StatsTrackerIO
                 ? new(StatsTrackerData.CombatSnapshots) : null,
         };
 
-        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-        File.WriteAllText(path, JsonSerializer.Serialize(side, _opts));
+        SidecarIO.WriteJson(path, side, _opts);
     }
 
     internal static DmSidecar? ReadMidRun()
     {
-        try
-        {
-            var path = MidRunSidecarPath();
-            if (path == null || !File.Exists(path)) return null;
-            return JsonSerializer.Deserialize<DmSidecar>(File.ReadAllText(path), _opts);
-        }
-        catch (Exception e)
-        {
-            MainFile.Logger.Warn($"StatsTracker mid-run read: {e.Message}");
-            return null;
-        }
+        var path = MidRunSidecarPath();
+        return path != null ? SidecarIO.ReadJson<DmSidecar>(path, _opts) : null;
     }
 
     internal static void DeleteMidRunSidecar()
     {
-        try
-        {
-            var path = MidRunSidecarPath();
-            if (path != null && File.Exists(path))
-                File.Delete(path);
-        }
-        catch (Exception e)
-        {
-            MainFile.Logger.Warn($"StatsTracker mid-run delete: {e.Message}");
-        }
+        var path = MidRunSidecarPath();
+        if (path != null) SidecarIO.TryDelete(path);
     }
 
     private static void RestoreScope(DmScopeStats target, DmSidecarScope source)
@@ -858,16 +819,7 @@ internal static class StatsTrackerIO
 
     internal static DmSidecar? Read(long startTime)
     {
-        try
-        {
-            var path = SidecarPath(startTime);
-            if (path == null || !File.Exists(path)) return null;
-            return JsonSerializer.Deserialize<DmSidecar>(File.ReadAllText(path), _opts);
-        }
-        catch (Exception e)
-        {
-            MainFile.Logger.Warn($"StatsTracker sidecar read: {e.Message}");
-            return null;
-        }
+        var path = SidecarPath(startTime);
+        return path != null ? SidecarIO.ReadJson<DmSidecar>(path, _opts) : null;
     }
 }

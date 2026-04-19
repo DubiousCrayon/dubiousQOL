@@ -5,6 +5,8 @@ using HarmonyLib;
 using MegaCrit.Sts2.Core.Saves;
 using MegaCrit.sts2.Core.Nodes.TopBar;
 
+using dubiousQOL.UI;
+
 namespace dubiousQOL.Patches;
 
 /// <summary>
@@ -139,8 +141,7 @@ public static class PatchWinStreakDisplay
         label.SetAnchorsPreset(Control.LayoutPreset.FullRect);
         label.OffsetTop = 42; // sit in the wider belly, not the tip
         label.OffsetRight = 2;
-        var fontRes = ResourceLoader.Load<Font>(
-            "res://dubiousQOL/fonts/MGF-FirechiknsPersonalUse.otf", null, ResourceLoader.CacheMode.Reuse);
+        var fontRes = FontHelper.Load("mgf-firechikns");
         if (fontRes != null)
             label.AddThemeFontOverride("font", fontRes);
         label.AddThemeFontSizeOverride("font_size", 16);
@@ -184,8 +185,7 @@ public static class PatchWinStreakDisplay
             OffsetBottom = centerOffsetY,
         };
 
-        var font = ResourceLoader.Load<Font>(
-            "res://dubiousQOL/fonts/fightkid.ttf", null, ResourceLoader.CacheMode.Reuse);
+        var font = FontHelper.Load("fightkid");
 
         int n = text.Length;
         if (n == 0) return container;

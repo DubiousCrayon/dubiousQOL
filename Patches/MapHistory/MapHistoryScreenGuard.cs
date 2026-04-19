@@ -6,6 +6,8 @@ using MegaCrit.Sts2.Core.Nodes.CommonUi;
 using MegaCrit.Sts2.Core.Nodes.GodotExtensions;
 using MegaCrit.Sts2.Core.Nodes.Screens.Map;
 
+using dubiousQOL.Utilities;
+
 namespace dubiousQOL.Patches;
 
 /// <summary>
@@ -136,9 +138,9 @@ internal static class MapHistoryScreenGuard
             if (!Active) return true;
             // If either _placeholderImage (fallback art) or _material (spine art) is
             // null, the boss point never finished initializing — no-op this call.
-            var img = GetField(__instance, "_placeholderImage");
-            var mat = GetField(__instance, "_material");
-            var uses = GetField(__instance, "_usesSpine") as bool?;
+            var img = ReflectionHelper.GetField(__instance, "_placeholderImage");
+            var mat = ReflectionHelper.GetField(__instance, "_material");
+            var uses = ReflectionHelper.GetField(__instance, "_usesSpine") as bool?;
             bool ready = (uses == true && mat != null) || (uses == false && img != null);
             return ready;
         }
@@ -179,21 +181,21 @@ internal static class MapHistoryScreenGuard
                     new Callable(__instance, NClickableControl.MethodName.HandleMouseRelease));
                 __instance.Connect(CanvasItem.SignalName.VisibilityChanged,
                     new Callable(__instance, NClickableControl.MethodName.OnVisibilityChanged));
-                SetField(__instance, "_isControllerNavigable",
+                ReflectionHelper.SetField(__instance, "_isControllerNavigable",
                     __instance.FocusMode == Control.FocusModeEnum.All);
 
                 // NButton.ConnectSignals equivalent (sans RegisterHotkeys — NMapPoint
                 // doesn't override Hotkeys so it's empty and that branch is a no-op
                 // in the original). UpdateControllerButton tolerates a null icon.
                 var hotkeyIcon = __instance.GetNodeOrNull<TextureRect>("%ControllerIcon");
-                SetField(__instance, "_controllerHotkeyIcon", hotkeyIcon);
+                ReflectionHelper.SetField(__instance, "_controllerHotkeyIcon", hotkeyIcon);
 
                 // NMapPoint.ConnectSignals safe parts. Skip VoteContainer.Initialize
                 // — it's the call that NREs in stub context.
                 var reticle = __instance.GetNodeOrNull<NSelectionReticle>("%SelectionReticle");
-                SetField(__instance, "_controllerSelectionReticle", reticle);
+                ReflectionHelper.SetField(__instance, "_controllerSelectionReticle", reticle);
                 var vote = __instance.GetNodeOrNull<NMultiplayerVoteContainer>("%MapPointVoteContainer");
-                SetProperty(__instance, "VoteContainer", vote);
+                ReflectionHelper.SetProperty(__instance, "VoteContainer", vote);
             }
             catch (Exception e) { MainFile.Logger.Warn($"MapHistory NMapPoint ConnectSignals: {e.Message}\n{e.StackTrace}"); }
             return false;
@@ -204,18 +206,18 @@ internal static class MapHistoryScreenGuard
     // Traverse.FieldExists quirks on private base-class visibility.
     internal static void WireEssentialFields(NMapScreen s)
     {
-        SetField(s, "_mapContainer", s.GetNodeOrNull<Control>("TheMap"));
-        SetField(s, "_mapBgContainer", s.GetNodeOrNull<NMapBg>("%MapBg"));
-        SetField(s, "_pathsContainer", s.GetNodeOrNull<Control>("TheMap/Paths"));
-        SetField(s, "_points", s.GetNodeOrNull<Control>("TheMap/Points"));
-        SetField(s, "_marker", s.GetNodeOrNull<NMapMarker>("TheMap/MapMarker"));
+        ReflectionHelper.SetField(s, "_mapContainer", s.GetNodeOrNull<Control>("TheMap"), warnOnMiss: true);
+        ReflectionHelper.SetField(s, "_mapBgContainer", s.GetNodeOrNull<NMapBg>("%MapBg"), warnOnMiss: true);
+        ReflectionHelper.SetField(s, "_pathsContainer", s.GetNodeOrNull<Control>("TheMap/Paths"), warnOnMiss: true);
+        ReflectionHelper.SetField(s, "_points", s.GetNodeOrNull<Control>("TheMap/Points"), warnOnMiss: true);
+        ReflectionHelper.SetField(s, "_marker", s.GetNodeOrNull<NMapMarker>("TheMap/MapMarker"), warnOnMiss: true);
         var drawings = s.GetNodeOrNull<NMapDrawings>("TheMap/Drawings");
-        SetProperty(s, "Drawings", drawings);
+        ReflectionHelper.SetProperty(s, "Drawings", drawings, warnOnMiss: true);
         // Must stay false — NMapScreen.CanScroll() returns !_isInputDisabled,
         // and we need drag-scroll to work in the viewer. Click-to-travel is
         // neutralized by the TravelToMapCoord prefix below instead.
-        SetField(s, "_isInputDisabled", false);
-        MainFile.Logger.Info($"MapHistory WireEssential: mapContainer={GetField(s, "_mapContainer") != null} points={GetField(s, "_points") != null} paths={GetField(s, "_pathsContainer") != null} marker={GetField(s, "_marker") != null} bg={GetField(s, "_mapBgContainer") != null} drawings={s.Drawings != null}");
+        ReflectionHelper.SetField(s, "_isInputDisabled", false);
+        MainFile.Logger.Info($"MapHistory WireEssential: mapContainer={ReflectionHelper.GetField(s, "_mapContainer") != null} points={ReflectionHelper.GetField(s, "_points") != null} paths={ReflectionHelper.GetField(s, "_pathsContainer") != null} marker={ReflectionHelper.GetField(s, "_marker") != null} bg={ReflectionHelper.GetField(s, "_mapBgContainer") != null} drawings={s.Drawings != null}");
     }
 
     private static void MinimalReady(NMapScreen s)
@@ -223,26 +225,4 @@ internal static class MapHistoryScreenGuard
         WireEssentialFields(s);
     }
 
-    private static void SetField(object target, string name, object? value)
-    {
-        var f = target.GetType().GetField(name,
-            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Public);
-        if (f != null) f.SetValue(target, value);
-        else MainFile.Logger.Warn($"MapHistory SetField missing: {name}");
-    }
-
-    private static object? GetField(object target, string name)
-    {
-        var f = target.GetType().GetField(name,
-            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Public);
-        return f?.GetValue(target);
-    }
-
-    private static void SetProperty(object target, string name, object? value)
-    {
-        var p = target.GetType().GetProperty(name,
-            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Public);
-        if (p != null && p.CanWrite) p.SetValue(target, value);
-        else MainFile.Logger.Warn($"MapHistory SetProperty missing: {name}");
-    }
 }

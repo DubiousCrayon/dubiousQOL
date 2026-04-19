@@ -7,6 +7,8 @@ using MegaCrit.Sts2.Core.Nodes.Screens;
 using MegaCrit.Sts2.Core.Nodes.Screens.RunHistoryScreen;
 using MegaCrit.Sts2.Core.Runs;
 
+using dubiousQOL.UI;
+
 namespace dubiousQOL.Patches;
 
 /// <summary>
@@ -46,17 +48,12 @@ public static class PatchMapHistoryButton
             try
             {
                 CurrentHistory = history;
-                // FindChild recursive=true since the button now lives under the
-                // share button's parent, not directly under NRunHistory.
                 var btn = __instance.FindChild(ButtonName, recursive: true, owned: false) as BaseButton;
                 if (btn == null || history == null) return;
                 bool hasMaps = MapHistoryIO.Exists(history.StartTime);
-                btn.Disabled = !hasMaps;
-                btn.MouseFilter = hasMaps ? Control.MouseFilterEnum.Stop : Control.MouseFilterEnum.Ignore;
-                if (!hasMaps) { btn.Modulate = Colors.White; btn.Scale = Vector2.One; }
-                btn.TooltipText = hasMaps
-                    ? "View saved per-act maps"
-                    : "No map saved for this run (pre-feature run history)";
+                ButtonHelper.SetToggleState(btn, hasMaps,
+                    "View saved per-act maps",
+                    "No map saved for this run (pre-feature run history)");
             }
             catch (Exception e) { MainFile.Logger.Warn($"MapHistoryButton toggle: {e.Message}"); }
         }
@@ -103,61 +100,12 @@ public static class PatchMapHistoryButton
             btn.AddThemeFontSizeOverride("font_size", 20);
         }
 
-        // Position relative to the in-scene Share button (bottom-right). Reading
-        // share's resolved offsets keeps us layout-correct without hardcoding any
-        // pixel positions from the .tscn. Falls back to bottom-left if share isn't
-        // found (shouldn't happen on the run history screen).
+        // Position relative to the in-scene Share button (bottom-right).
         const float gap = 24f;
         var share = UiHelper.FindFirst<NShareButton>(screen);
-        if (share != null)
-        {
-            var shareParent = share.GetParent() as Control ?? screen;
-            shareParent.AddChild(btn);
-            btn.AnchorLeft = share.AnchorLeft;
-            btn.AnchorRight = share.AnchorRight;
-            btn.AnchorTop = share.AnchorTop;
-            btn.AnchorBottom = share.AnchorBottom;
-            btn.OffsetRight = share.OffsetLeft - gap;
-            btn.OffsetLeft = btn.OffsetRight - btnSize;
-            // Vertically center to share's box.
-            float shareCenter = (share.OffsetTop + share.OffsetBottom) * 0.5f;
-            btn.OffsetTop = shareCenter - btnSize * 0.5f;
-            btn.OffsetBottom = shareCenter + btnSize * 0.5f;
-        }
-        else
-        {
-            screen.AddChild(btn);
-            btn.AnchorLeft = 0f; btn.AnchorRight = 0f;
-            btn.AnchorTop = 1f; btn.AnchorBottom = 1f;
-            if (iconTex != null)
-            {
-                btn.OffsetLeft = leftInset;
-                btn.OffsetRight = leftInset + btnSize;
-                btn.OffsetTop = -(bottomInset + btnSize);
-                btn.OffsetBottom = -bottomInset;
-            }
-            else
-            {
-                btn.OffsetLeft = 96;
-                btn.OffsetRight = 276;
-                btn.OffsetTop = -96;
-                btn.OffsetBottom = -52;
-            }
-        }
-
-        // Hover state: brighten + scale up slightly. PivotOffset center keeps the
-        // scale anchored to the button center instead of top-left.
-        btn.PivotOffset = new Vector2(btnSize * 0.5f, btnSize * 0.5f);
-        // Raw TextureButton/Button doesn't route through NButton.OnFocus, so the
-        // UI hover SFX that NBackButton etc. get for free has to be triggered by hand.
-        btn.MouseEntered += () => { if (!btn.Disabled) { btn.Modulate = new Color(1.2f, 1.2f, 1.2f); btn.Scale = new Vector2(1.1f, 1.1f); SfxCmd.Play("event:/sfx/ui/clicks/ui_hover"); } };
-        btn.MouseExited += () => { btn.Modulate = Colors.White; btn.Scale = Vector2.One; };
-
-        // Fire the click SFX on mouse-down (matching NButton.OnPress via HandleMousePress),
-        // not on Pressed/release. Godot's BaseButton.Pressed defaults to release-mode, so
-        // wiring the sound there made it land at the end of the click instead of at the
-        // start like every other in-game button.
-        btn.ButtonDown += () => { if (!btn.Disabled) SfxCmd.Play("event:/sfx/ui/clicks/ui_click"); };
+        var shareParent = share != null ? (share.GetParent() as Control ?? screen) : screen;
+        ButtonHelper.PositionLeftOf(btn, share, shareParent, btnSize, gap, leftInset, bottomInset);
+        ButtonHelper.WireHoverAndClickSfx(btn, btnSize);
 
         btn.Pressed += () =>
         {

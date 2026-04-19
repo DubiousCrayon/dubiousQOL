@@ -10,6 +10,8 @@ using MegaCrit.Sts2.Core.Nodes.Screens;
 using MegaCrit.Sts2.Core.Nodes.Screens.RunHistoryScreen;
 using MegaCrit.Sts2.Core.Runs;
 
+using dubiousQOL.UI;
+
 namespace dubiousQOL.Patches;
 
 /// <summary>
@@ -49,12 +51,9 @@ public static class PatchRunHistoryStatsButton
                 var btn = __instance.FindChild(ButtonName, recursive: true, owned: false) as BaseButton;
                 if (btn == null || history == null) return;
                 bool hasStats = HasSidecar(history.StartTime);
-                btn.Disabled = !hasStats;
-                btn.MouseFilter = hasStats ? Control.MouseFilterEnum.Stop : Control.MouseFilterEnum.Ignore;
-                if (!hasStats) { btn.Modulate = Colors.White; btn.Scale = Vector2.One; }
-                btn.TooltipText = hasStats
-                    ? "View run stats breakdown"
-                    : "No stats data for this run";
+                ButtonHelper.SetToggleState(btn, hasStats,
+                    "View run stats breakdown",
+                    "No stats data for this run");
             }
             catch (Exception e) { MainFile.Logger.Warn($"RunHistoryStatsButton toggle: {e.Message}"); }
         }
@@ -116,35 +115,9 @@ public static class PatchRunHistoryStatsButton
         // Position relative to the map button (if present) or share button.
         var anchor = screen.FindChild("DubiousViewMapButton", recursive: true, owned: false) as Control
                   ?? UiHelper.FindFirst<NShareButton>(screen) as Control;
-        if (anchor != null)
-        {
-            var anchorParent = anchor.GetParent() as Control ?? screen;
-            anchorParent.AddChild(btn);
-            btn.AnchorLeft = anchor.AnchorLeft;
-            btn.AnchorRight = anchor.AnchorRight;
-            btn.AnchorTop = anchor.AnchorTop;
-            btn.AnchorBottom = anchor.AnchorBottom;
-            btn.OffsetRight = anchor.OffsetLeft - gap;
-            btn.OffsetLeft = btn.OffsetRight - btnSize;
-            float anchorCenter = (anchor.OffsetTop + anchor.OffsetBottom) * 0.5f;
-            btn.OffsetTop = anchorCenter - btnSize * 0.5f;
-            btn.OffsetBottom = anchorCenter + btnSize * 0.5f;
-        }
-        else
-        {
-            screen.AddChild(btn);
-            btn.AnchorLeft = 0f; btn.AnchorRight = 0f;
-            btn.AnchorTop = 1f; btn.AnchorBottom = 1f;
-            btn.OffsetLeft = 110;
-            btn.OffsetRight = 110 + btnSize;
-            btn.OffsetTop = -(80 + btnSize);
-            btn.OffsetBottom = -80;
-        }
-
-        btn.PivotOffset = new Vector2(btnSize * 0.5f, btnSize * 0.5f);
-        btn.MouseEntered += () => { if (!btn.Disabled) { btn.Modulate = new Color(1.2f, 1.2f, 1.2f); btn.Scale = new Vector2(1.1f, 1.1f); SfxCmd.Play("event:/sfx/ui/clicks/ui_hover"); } };
-        btn.MouseExited += () => { btn.Modulate = Colors.White; btn.Scale = Vector2.One; };
-        btn.ButtonDown += () => { if (!btn.Disabled) SfxCmd.Play("event:/sfx/ui/clicks/ui_click"); };
+        var anchorParent = anchor != null ? (anchor.GetParent() as Control ?? screen) : screen;
+        ButtonHelper.PositionLeftOf(btn, anchor, anchorParent, btnSize, gap);
+        ButtonHelper.WireHoverAndClickSfx(btn, btnSize);
 
         btn.Pressed += () =>
         {

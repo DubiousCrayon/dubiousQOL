@@ -24,6 +24,9 @@ using MegaCrit.Sts2.Core.Saves.Runs;
 using MegaCrit.Sts2.Core.Unlocks;
 using MegaCrit.Sts2.addons.mega_text;
 
+using dubiousQOL.UI;
+using dubiousQOL.Utilities;
+
 namespace dubiousQOL.Patches;
 
 /// <summary>
@@ -43,41 +46,15 @@ internal static class MapHistoryViewerModal
         var sidecar = MapHistoryIO.Read(history.StartTime);
         if (sidecar == null || sidecar.Acts.Count == 0)
         {
-            modal.Add(ErrorPanel("No map data available for this run."));
+            modal.Add(ModalHelper.CreateErrorPanel("DubiousMapHistoryError", "No map data available for this run."));
             return;
         }
         try { modal.Add(new MapHistoryViewer(history, sidecar, runHistoryScreen), showBackstop: false); }
         catch (Exception e)
         {
             MainFile.Logger.Warn($"MapHistory open: {e.Message}\n{e.StackTrace}");
-            modal.Add(ErrorPanel("Failed to open map viewer (see logs)."));
+            modal.Add(ModalHelper.CreateErrorPanel("DubiousMapHistoryError", "Failed to open map viewer (see logs)."));
         }
-    }
-
-    private static Control ErrorPanel(string msg)
-    {
-        var root = new Control { Name = "DubiousMapHistoryError", MouseFilter = Control.MouseFilterEnum.Stop };
-        root.SetAnchorsPreset(Control.LayoutPreset.FullRect);
-        var frame = new PanelContainer { Name = "Frame" };
-        frame.AnchorLeft = 0.5f; frame.AnchorRight = 0.5f;
-        frame.AnchorTop = 0.5f; frame.AnchorBottom = 0.5f;
-        frame.OffsetLeft = -220; frame.OffsetRight = 220;
-        frame.OffsetTop = -80; frame.OffsetBottom = 80;
-        root.AddChild(frame);
-
-        var vbox = new VBoxContainer();
-        vbox.AddThemeConstantOverride("separation", 14);
-        frame.AddChild(vbox);
-
-        var lbl = new Label { Text = msg, HorizontalAlignment = HorizontalAlignment.Center };
-        lbl.AddThemeFontSizeOverride("font_size", 18);
-        vbox.AddChild(lbl);
-
-        var close = new Button { Text = "Close", CustomMinimumSize = new Vector2(140, 36) };
-        close.SizeFlagsHorizontal = Control.SizeFlags.ShrinkCenter;
-        close.Pressed += () => NModalContainer.Instance?.Clear();
-        vbox.AddChild(close);
-        return root;
     }
 }
 
@@ -122,15 +99,7 @@ internal partial class MapHistoryViewer : Control, IScreenContext
         // _Ready fires before we call Enable() — otherwise OnEnable() dereferences
         // null _outline/_buttonImage/_moveTween (silently NREs into the fallback).
         if (!TryBuildBackButton())
-        {
-            var close = new Button { Text = "Close", CustomMinimumSize = new Vector2(140, 44) };
-            close.AnchorLeft = 0f; close.AnchorRight = 0f;
-            close.AnchorTop = 1f; close.AnchorBottom = 1f;
-            close.OffsetLeft = 24; close.OffsetRight = 164;
-            close.OffsetTop = -84; close.OffsetBottom = -40;
-            close.Pressed += () => NModalContainer.Instance?.Clear();
-            AddChild(close);
-        }
+            AddChild(ModalHelper.CreateFallbackCloseButton());
 
         Render();
     }
@@ -184,11 +153,7 @@ internal partial class MapHistoryViewer : Control, IScreenContext
     // collision swallowed). Without this the player can get trapped.
     public override void _UnhandledInput(InputEvent inputEvent)
     {
-        if (inputEvent is InputEventKey { Pressed: true } k && k.Keycode == Key.Escape)
-        {
-            NModalContainer.Instance?.Clear();
-            GetViewport().SetInputAsHandled();
-        }
+        ModalHelper.TryHandleEscape(inputEvent, this);
     }
 
     private bool TryBuildBackButton()
@@ -208,10 +173,7 @@ internal partial class MapHistoryViewer : Control, IScreenContext
             if (src == null) src = UiHelper.FindFirst<NBackButton>(GetTree().Root);
             if (src == null) { MainFile.Logger.Warn("MapHistory BuildBackButton: no NBackButton in tree"); return false; }
 
-            // Flags=4 → DUPLICATE_SCRIPTS only, skips Connect-style signal bindings
-            // so the original screen's back handler isn't carried into our copy.
-            // Children (Outline, Image) are duplicated regardless.
-            var clone = src.Duplicate(4) as NBackButton;
+            var clone = CloneHelper.Clone<NBackButton>(src, CloneHelper.ScriptsOnly);
             if (clone == null) { MainFile.Logger.Warn("MapHistory BuildBackButton: Duplicate cast failed"); return false; }
             clone.Name = "DubiousMapBackButton";
             clone.Released += _ => NModalContainer.Instance?.Clear();
@@ -239,12 +201,8 @@ internal partial class MapHistoryViewer : Control, IScreenContext
                 return;
             }
 
-            // Flags=4 → DUPLICATE_SCRIPTS only. Skipping DUPLICATE_SIGNALS avoids
-            // carrying the source NRunHistory.OnLeftButtonButtonReleased Connect
-            // binding, which would advance to the prev/next *run* whenever our
-            // arrow is clicked. Children are duplicated regardless of flags.
-            _prevArrow = srcLeft.Duplicate(4) as Control;
-            _nextArrow = srcRight.Duplicate(4) as Control;
+            _prevArrow = CloneHelper.Clone<Control>(srcLeft, CloneHelper.ScriptsOnly);
+            _nextArrow = CloneHelper.Clone<Control>(srcRight, CloneHelper.ScriptsOnly);
             if (_prevArrow == null || _nextArrow == null)
             {
                 MainFile.Logger.Warn($"MapHistory BuildSideArrows: duplicate cast failed");
@@ -293,15 +251,7 @@ internal partial class MapHistoryViewer : Control, IScreenContext
         // _isLeft field via reflection purely so any internal logic keying off
         // it behaves correctly — we don't use its hotkeys in the viewer.
         if (arrow is NRunHistoryArrowButton arrowBtn)
-        {
-            try
-            {
-                var f = typeof(NRunHistoryArrowButton).GetField("_isLeft",
-                    System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
-                f?.SetValue(arrowBtn, isLeft);
-            }
-            catch (Exception e) { MainFile.Logger.Warn($"MapHistory set _isLeft: {e.Message}"); }
-        }
+            ReflectionHelper.SetField(arrowBtn, "_isLeft", isLeft);
     }
 
     private static void ResetClonedArrow(Control arrow)
@@ -429,13 +379,13 @@ internal partial class MapHistoryViewer : Control, IScreenContext
         HideNode(screen, "MapLegend");
 
         // State field the rest of NMapScreen relies on.
-        SetPrivateField(screen, "_runState", _stubRunState);
+        ReflectionHelper.SetField(screen, "_runState", _stubRunState);
 
         // NMapBg.Initialize stores the RunState so OnVisibilityChanged can read
         // MapTopBg/MapMidBg/MapBotBg. Without it, the bg stays blank. OnVisibilityChanged
         // is the only thing that actually sets the textures, and it only fires when
         // visibility flips — so call it explicitly via reflection after Initialize.
-        var bg = GetPrivateField<NMapBg>(screen, "_mapBgContainer");
+        var bg = ReflectionHelper.GetField<NMapBg>(screen, "_mapBgContainer");
         if (bg != null)
         {
             bg.Initialize(_stubRunState);
@@ -449,7 +399,7 @@ internal partial class MapHistoryViewer : Control, IScreenContext
         }
 
         // NMapMarker.Initialize needs a Player to pick its texture.
-        var marker = GetPrivateField<NMapMarker>(screen, "_marker");
+        var marker = ReflectionHelper.GetField<NMapMarker>(screen, "_marker");
         marker?.Initialize(players[0]);
 
         // NMapDrawings needs _playerCollection for LoadDrawings color lookup.
@@ -457,7 +407,7 @@ internal partial class MapHistoryViewer : Control, IScreenContext
         var drawings = screen.Drawings;
         if (drawings != null)
         {
-            SetPrivateField(drawings, "_playerCollection", _stubRunState);
+            ReflectionHelper.SetField(drawings, "_playerCollection", _stubRunState);
         }
 
         // Reconstruct the saved ActMap and hand it to the real SetMap — this is
@@ -479,9 +429,9 @@ internal partial class MapHistoryViewer : Control, IScreenContext
         // were captured relative to. We bypass that animation, so pin both the
         // current position and the drag target to the in-run resting value,
         // otherwise the map sits ~600px lower than where strokes were drawn.
-        var mapContainer = GetPrivateField<Control>(screen, "_mapContainer");
+        var mapContainer = ReflectionHelper.GetField<Control>(screen, "_mapContainer");
         if (mapContainer != null) mapContainer.Position = new Vector2(0f, -600f);
-        SetPrivateField(screen, "_targetDragPos", new Vector2(0f, -600f));
+        ReflectionHelper.SetField(screen, "_targetDragPos", new Vector2(0f, -600f));
         // TODO: drawings still land a few pixels off from their in-run anchor
         // points on some runs. Deferring OnWindowChange gets most cases aligned
         // but not all — the remaining offset likely comes from a layout/size
@@ -546,7 +496,7 @@ internal partial class MapHistoryViewer : Control, IScreenContext
 
         var visited = new HashSet<MapCoord>(act.VisitedMapCoords);
 
-        var pointsContainer = GetPrivateField<Control>(screen, "_points");
+        var pointsContainer = ReflectionHelper.GetField<Control>(screen, "_points");
         if (pointsContainer == null) return;
 
         foreach (var child in pointsContainer.GetChildren())
@@ -683,20 +633,6 @@ internal partial class MapHistoryViewer : Control, IScreenContext
             if (n != null) n.Visible = false;
         }
         catch (Exception e) { MainFile.Logger.Warn($"MapHistory HideNode {path}: {e.Message}"); }
-    }
-
-    private static void SetPrivateField(object target, string name, object? value)
-    {
-        var f = target.GetType().GetField(name,
-            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Public);
-        if (f != null) f.SetValue(target, value);
-    }
-
-    private static T? GetPrivateField<T>(object target, string name) where T : class
-    {
-        var f = target.GetType().GetField(name,
-            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Public);
-        return f?.GetValue(target) as T;
     }
 
 }

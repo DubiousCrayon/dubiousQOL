@@ -13,6 +13,8 @@ using MegaCrit.Sts2.Core.MonsterMoves.Intents;
 using MegaCrit.Sts2.Core.Nodes.Combat;
 using MegaCrit.Sts2.Core.Entities.Cards;
 
+using dubiousQOL.UI;
+
 namespace dubiousQOL.Patches;
 
 /// <summary>
@@ -41,7 +43,7 @@ public static class PatchIncomingDamageDisplay
     private const float GapTopOfBar = -25f;
     private const float GapRightOfBar = -10f;
     private const float DamageLeanDegrees = -12f;
-    private const string FontPath = "res://dubiousQOL/fonts/fightkid.ttf";
+    private const string FontId = "fightkid";
 
     private static readonly Color DamageColor = new(0.95f, 0.15f, 0.15f);
     private static readonly Color HpLossColor = new(0.72f, 0.42f, 0.95f);
@@ -134,7 +136,7 @@ public static class PatchIncomingDamageDisplay
             AutowrapMode = TextServer.AutowrapMode.Off,
             Visible = false,
         };
-        var font = ResourceLoader.Load<Font>(FontPath, null, ResourceLoader.CacheMode.Reuse);
+        var font = FontHelper.Load(FontId);
         if (font != null) lbl.AddThemeFontOverride("normal_font", font);
         lbl.AddThemeFontSizeOverride("normal_font_size", fontSize);
         lbl.AddThemeColorOverride("default_color", color);
@@ -263,7 +265,7 @@ public static class PatchIncomingDamageDisplay
         damageLabel.Visible = incoming > 0;
         damageLabel.Position = new Vector2(0, 2);
 
-        hpLossLabel.Text = "[font=res://dubiousQOL/fonts/SANDEN.ttf]-[/font]" + hpLoss + "\u2009HP";
+        hpLossLabel.Text = $"[font={FontHelper.GetPath("sanden")}]-[/font]" + hpLoss + "\u2009HP";
         hpLossLabel.Visible = hpLoss > 0;
         // Promote HP loss to the top slot when no damage is showing so it
         // doesn't float in empty space below an invisible label.

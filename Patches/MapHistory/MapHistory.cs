@@ -17,6 +17,8 @@ using MegaCrit.Sts2.Core.Saves.Managers;
 using MegaCrit.Sts2.Core.Saves.MapDrawing;
 using MegaCrit.Sts2.Core.Saves.Runs;
 
+using dubiousQOL.Utilities;
+
 namespace dubiousQOL.Patches;
 
 /// <summary>
@@ -144,6 +146,7 @@ internal sealed class MapHistorySidecarAct
 
 internal static class MapHistoryIO
 {
+    private const string Dir = "map_history";
     private const string SidecarSuffix = ".maps.json";
 
     private static readonly JsonSerializerOptions _jsonOptions = new()
@@ -152,31 +155,8 @@ internal static class MapHistoryIO
         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
     };
 
-    internal static string? SidecarAbsolutePath(long startTime)
-    {
-        try
-        {
-            int profileId = SaveManager.Instance.CurrentProfileId;
-            // GetProfileScopedPath yields "user://{platform}/{userId}/{profileDir}/{dataType}".
-            // RunHistorySaveManager.GetHistoryPath only returns "{profileDir}/saves/history"
-            // (no platform/userId scope) — prepending user:// to that lands in the wrong dir.
-            //
-            // Sidecars MUST live OUTSIDE the history/ directory. The game's
-            // RunHistorySaveManager.LoadAllRunHistoryNames enumerates every file in
-            // history/ and filters only .corrupt/.backup — any other file (like our
-            // .maps.json) gets fed to LoadRunHistory, fails deserialization, and
-            // MigrationManager.PreserveCorruptFile renames it to .corrupt. That's why
-            // the sidecar vanishes after revisiting run history. Use a sibling dir.
-            string userPath = UserDataPathProvider.GetProfileScopedPath(profileId, UserDataPathProvider.SavesDir);
-            string abs = ProjectSettings.GlobalizePath(userPath);
-            return Path.Combine(abs, "map_history", startTime + SidecarSuffix);
-        }
-        catch (Exception e)
-        {
-            MainFile.Logger.Warn($"MapHistory path resolve: {e.Message}");
-            return null;
-        }
-    }
+    internal static string? SidecarAbsolutePath(long startTime) =>
+        SidecarIO.ResolvePath(Dir, startTime + SidecarSuffix);
 
     internal static bool Exists(long startTime)
     {
@@ -202,22 +182,12 @@ internal static class MapHistoryIO
             });
         }
         sidecar.Acts.Sort((a, b) => a.Index.CompareTo(b.Index));
-        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-        File.WriteAllText(path, JsonSerializer.Serialize(sidecar, _jsonOptions));
+        SidecarIO.WriteJson(path, sidecar, _jsonOptions);
     }
 
     internal static MapHistorySidecar? Read(long startTime)
     {
-        try
-        {
-            var path = SidecarAbsolutePath(startTime);
-            if (path == null || !File.Exists(path)) return null;
-            return JsonSerializer.Deserialize<MapHistorySidecar>(File.ReadAllText(path), _jsonOptions);
-        }
-        catch (Exception e)
-        {
-            MainFile.Logger.Warn($"MapHistory sidecar read: {e.Message}");
-            return null;
-        }
+        var path = SidecarAbsolutePath(startTime);
+        return path != null ? SidecarIO.ReadJson<MapHistorySidecar>(path, _jsonOptions) : null;
     }
 }
