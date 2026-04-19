@@ -3,9 +3,7 @@ using System.Collections.Generic;
 using dubiousQOL.Config;
 using Godot;
 using HarmonyLib;
-using MegaCrit.Sts2.Core.Assets;
 using MegaCrit.Sts2.Core.Commands;
-using MegaCrit.Sts2.Core.Helpers;
 using MegaCrit.Sts2.Core.Nodes.CommonUi;
 using MegaCrit.Sts2.Core.Nodes.GodotExtensions;
 using MegaCrit.Sts2.Core.Nodes.Multiplayer;
@@ -13,6 +11,9 @@ using MegaCrit.Sts2.Core.Nodes.Screens.ScreenContext;
 using MegaCrit.Sts2.Core.Nodes.Screens.Settings;
 using MegaCrit.Sts2.Core.Runs;
 using MegaCrit.Sts2.addons.mega_text;
+
+using dubiousQOL.UI;
+using ModTheme = dubiousQOL.UI.Theme;
 
 namespace dubiousQOL.Patches;
 
@@ -48,8 +49,8 @@ public static class PatchModConfigSettingsRow
             return;
         }
 
-        var newDivider = (Node)divider.Duplicate(15);
-        var newRow = (MarginContainer)modding.Duplicate(15);
+        var newDivider = CloneHelper.Clone<Node>(divider, CloneHelper.Full)!;
+        var newRow = CloneHelper.Clone<MarginContainer>(modding, CloneHelper.Full)!;
         newRow.UniqueNameInOwner = false;
         newRow.Name = RowName;
 
@@ -102,10 +103,6 @@ internal partial class DubiousConfigPanel : Control, IScreenContext
 
 internal static class DubiousConfigModal
 {
-    private static readonly Color DividerColor = new(0.909804f, 0.862745f, 0.745098f, 0.25098f);
-    private static readonly Color DimTextColor = new(0.65f, 0.62f, 0.55f);
-    private static readonly Color AccentColor = new(0.91f, 0.86f, 0.65f);
-
     // Shortened names for tab buttons so text fits within the tab texture.
     private static string ShortenTabName(string fullName) => fullName switch
     {
@@ -121,7 +118,6 @@ internal static class DubiousConfigModal
     // Source nodes from the live settings screen, cached per Open() call.
     // Typed as Node because Godot's C# interop doesn't resolve game script
     // types (NSettingsTab, NTickbox) when accessed via GetChildren/GetNode.
-    private static Node? _sourceTab;
     private static Node? _sourceTickbox;
     private static Node? _sourceLabel;
     private static Node? _sourceButton;
@@ -135,12 +131,10 @@ internal static class DubiousConfigModal
             if (modal == null) return;
 
             // Cache source nodes from the live settings screen for cloning
-            _sourceTab = settingsScreen.GetNodeOrNull("SettingsTabManager/General");
             _sourceTickbox = settingsScreen.FindChild("SettingsTickbox", recursive: true, owned: false);
             _sourceLabel = settingsScreen.GetNodeOrNull(
                 "ScrollContainer/Mask/Clipper/GeneralSettings/VBoxContainer/FastMode/Label");
 
-            if (_sourceTab == null) MainFile.Logger.Warn("ModConfigUI: source tab not found");
             if (_sourceTickbox == null) MainFile.Logger.Warn("ModConfigUI: source tickbox not found");
             if (_sourceLabel == null) MainFile.Logger.Warn("ModConfigUI: source label not found");
 
@@ -176,7 +170,6 @@ internal static class DubiousConfigModal
         }
         finally
         {
-            _sourceTab = null;
             _sourceTickbox = null;
             _sourceLabel = null;
             _sourceButton = null;
@@ -201,62 +194,13 @@ internal static class DubiousConfigModal
         for (int i = 0; i < features.Count; i++)
             tabNames[i + 1] = ShortenTabName(features[i].Name);
 
-        var tabBarContainer = new VBoxContainer { Name = "TabBarContainer" };
-        tabBarContainer.AddThemeConstantOverride("separation", 8);
+        var (tabBarContainer, allTabs) = TabHelper.CreateTabBar(tabNames, tabsPerRow: 5);
+        tabBarContainer.Name = "TabBarContainer";
         tabBarContainer.AnchorLeft = 0f; tabBarContainer.AnchorRight = 1f;
         tabBarContainer.AnchorTop = 0f; tabBarContainer.AnchorBottom = 0f;
         tabBarContainer.OffsetLeft = 200; tabBarContainer.OffsetRight = -200;
         tabBarContainer.OffsetTop = 60; tabBarContainer.OffsetBottom = 256;
         root.AddChild(tabBarContainer);
-
-        const int tabsPerRow = 5;
-        var allTabs = new Node?[tabNames.Length];
-        HBoxContainer? currentRow = null;
-
-        for (int i = 0; i < tabNames.Length && _sourceTab != null; i++)
-        {
-            if (i % tabsPerRow == 0)
-            {
-                currentRow = new HBoxContainer();
-                currentRow.AddThemeConstantOverride("separation", 12);
-                currentRow.Alignment = BoxContainer.AlignmentMode.Center;
-                tabBarContainer.AddChild(currentRow);
-            }
-
-            // Duplicate(15) preserves scripts+groups+signals structure.
-            // ModConfig (BaseLib) uses the same approach.
-            var tab = _sourceTab.Duplicate(15);
-            // Each tab needs its own shader material for independent HSV hover
-            var tabImg = tab.GetNodeOrNull<TextureRect>("TabImage");
-            if (tabImg?.Material is ShaderMaterial sm)
-                tabImg.Material = (Material)sm.Duplicate();
-
-            tab.Name = $"Tab_{i}";
-            currentRow!.AddChild(tab);
-            tab.CallDeferred("SetLabel", tabNames[i]);
-            allTabs[i] = tab;
-        }
-
-        // Set initial tab selection state. Can't use Select/Deselect via
-        // CallDeferred — clones start with _isSelected=false so Deselect's
-        // guard blocks it. Instead, wire the Ready signal (fires after _Ready
-        // populates _outline/_label) and directly set visual state.
-        for (int i = 0; i < allTabs.Length; i++)
-        {
-            if (allTabs[i] == null) continue;
-            var t = allTabs[i]!;
-            bool selected = i == 0;
-            t.Ready += () =>
-            {
-                var outline = t.GetNodeOrNull<TextureRect>("Outline");
-                if (outline != null) outline.Visible = selected;
-                var lbl = t.GetNodeOrNull<Control>("Label");
-                if (lbl != null) lbl.Modulate = selected
-                    ? new Color("FFF6E2")        // StsColors.cream
-                    : new Color("FFF6E280");     // StsColors.halfTransparentCream
-                t.Set("_isSelected", selected);  // sync internal state for future Select/Deselect
-            };
-        }
 
         // ── Content area ────────────────────────────────────
         var scroll = new ScrollContainer
@@ -286,9 +230,8 @@ internal static class DubiousConfigModal
         int activeTab = 0;
 
         // ── Tab switching ───────────────────────────────────
-        for (int i = 0; i < allTabs.Length; i++)
+        for (int i = 0; i < allTabs.Count; i++)
         {
-            if (allTabs[i] == null) continue;
             int idx = i;
             var capturedTabs = allTabs;
             allTabs[i].Connect("Released", Callable.From<Variant>(_ =>
@@ -297,27 +240,14 @@ internal static class DubiousConfigModal
                 scroll.RemoveChild(pages[activeTab]);
                 scroll.AddChild(pages[idx]);
                 scroll.ScrollVertical = 0;
-                capturedTabs[activeTab]?.Call("Deselect");
-                capturedTabs[idx]?.Call("Select");
+                capturedTabs[activeTab].Call("Deselect");
+                capturedTabs[idx].Call("Select");
                 activeTab = idx;
             }));
         }
 
         // ── Back button ─────────────────────────────────────
-        try
-        {
-            var backBtn = PreloadManager.Cache.GetScene(
-                SceneHelper.GetScenePath("ui/back_button")
-            ).Instantiate<NBackButton>(PackedScene.GenEditState.Disabled);
-            backBtn.Name = "DubiousConfigBackButton";
-            backBtn.Released += _ => NModalContainer.Instance?.Clear();
-            root.AddChild(backBtn);
-            backBtn.CallDeferred(NClickableControl.MethodName.Enable);
-        }
-        catch (Exception e)
-        {
-            MainFile.Logger.Warn($"ModConfigUI back button: {e.Message}");
-        }
+        ModalHelper.CreateBackButton(root, "DubiousConfigBackButton");
 
         return root;
     }
@@ -339,7 +269,7 @@ internal static class DubiousConfigModal
         hint.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         hint.CustomMinimumSize = new Vector2(0, 72);
         hint.VerticalAlignment = VerticalAlignment.Center;
-        hint.AddThemeColorOverride("font_color", DimTextColor);
+        hint.AddThemeColorOverride("font_color", ModTheme.TextDim);
         vbox.AddChild(hint);
 
         vbox.AddChild(CreateDivider());
@@ -381,7 +311,7 @@ internal static class DubiousConfigModal
         var desc = CreateInfoLabel(config.Description, 24);
         desc.HorizontalAlignment = HorizontalAlignment.Center;
         desc.AutowrapMode = TextServer.AutowrapMode.WordSmart;
-        desc.AddThemeColorOverride("font_color", DimTextColor);
+        desc.AddThemeColorOverride("font_color", ModTheme.TextDim);
         desc.CustomMinimumSize = new Vector2(0, 56);
         desc.VerticalAlignment = VerticalAlignment.Center;
         vbox.AddChild(desc);
@@ -396,7 +326,7 @@ internal static class DubiousConfigModal
             empty.HorizontalAlignment = HorizontalAlignment.Center;
             empty.CustomMinimumSize = new Vector2(0, 80);
             empty.VerticalAlignment = VerticalAlignment.Center;
-            empty.AddThemeColorOverride("font_color", DimTextColor);
+            empty.AddThemeColorOverride("font_color", ModTheme.TextDim);
             vbox.AddChild(empty);
         }
         else
@@ -420,9 +350,7 @@ internal static class DubiousConfigModal
         Control restoreBtn;
         if (_sourceButton != null)
         {
-            // Duplicate(14) = scripts + groups + instantiation, skip signals
-            // to avoid inheriting the source button's Released handler.
-            var clone = (Control)_sourceButton.Duplicate(14);
+            var clone = CloneHelper.Clone<Control>(_sourceButton, CloneHelper.FullNoSignals)!;
             clone.Name = "RestoreDefaultsButton";
             clone.SizeFlagsHorizontal = Control.SizeFlags.ShrinkCenter;
             // Set label text after _Ready populates MegaLabel internals.
@@ -553,7 +481,7 @@ internal static class DubiousConfigModal
     {
         if (_sourceLabel != null)
         {
-            var clone = (Control)_sourceLabel.Duplicate(15);
+            var clone = CloneHelper.Clone<Control>(_sourceLabel, CloneHelper.Full)!;
             if (clone is RichTextLabel rtl)
                 rtl.Text = text;
             clone.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
@@ -579,57 +507,32 @@ internal static class DubiousConfigModal
     /// </summary>
     private static MegaLabel CreateInfoLabel(string text, int fontSize)
     {
-        try
-        {
-            var regular = PreloadManager.Cache.GetAsset<Font>("res://themes/kreon_regular_shared.tres");
-            var bold = PreloadManager.Cache.GetAsset<Font>("res://themes/kreon_bold_shared.tres");
-            var theme = PreloadManager.Cache.GetAsset<Theme>("res://themes/settings_screen_line_header.tres");
+        var regular = FontHelper.Load("kreon-regular");
+        var bold = FontHelper.Load("kreon-bold");
+        var theme = FontHelper.LoadTheme("res://themes/settings_screen_line_header.tres");
 
-            var label = new MegaLabel
-            {
-                Theme = theme,
-                AutoSizeEnabled = false,
-                MouseFilter = Control.MouseFilterEnum.Ignore,
-                FocusMode = Control.FocusModeEnum.None,
-                Text = text,
-            };
-            label.AddThemeFontOverride("normal_font", regular);
-            label.AddThemeFontOverride("bold_font", bold);
-            label.AddThemeFontSizeOverride("font_size", fontSize);
-            return label;
-        }
-        catch
+        var label = new MegaLabel
         {
-            var fallback = new MegaLabel
-            {
-                Text = text,
-                MouseFilter = Control.MouseFilterEnum.Ignore,
-            };
-            fallback.AddThemeFontSizeOverride("font_size", fontSize);
-            return fallback;
-        }
+            Theme = theme,
+            AutoSizeEnabled = false,
+            MouseFilter = Control.MouseFilterEnum.Ignore,
+            FocusMode = Control.FocusModeEnum.None,
+            Text = text,
+        };
+        if (regular != null) label.AddThemeFontOverride("normal_font", regular);
+        if (bold != null) label.AddThemeFontOverride("bold_font", bold);
+        label.AddThemeFontSizeOverride("font_size", fontSize);
+        return label;
     }
 
     private static void ApplyGameFont(Control control, int fontSize)
     {
-        try
-        {
-            var regular = PreloadManager.Cache.GetAsset<Font>("res://themes/kreon_regular_shared.tres");
-            control.AddThemeFontOverride("font", regular);
-        }
-        catch { /* font unavailable, use default */ }
+        var regular = FontHelper.Load("kreon-regular");
+        if (regular != null) control.AddThemeFontOverride("font", regular);
         control.AddThemeFontSizeOverride("font_size", fontSize);
     }
 
-    private static ColorRect CreateDivider()
-    {
-        return new ColorRect
-        {
-            CustomMinimumSize = new Vector2(0, 2),
-            MouseFilter = Control.MouseFilterEnum.Ignore,
-            Color = DividerColor,
-        };
-    }
+    private static ColorRect CreateDivider() => StyleHelper.CreateDivider(ModTheme.Divider);
 
     private static HBoxContainer CreateSettingsRow(string labelText)
     {
@@ -654,10 +557,7 @@ internal static class DubiousConfigModal
     {
         if (_sourceTickbox != null)
         {
-            // Duplicate(0) = visual hierarchy only, no scripts/signals.
-            // This avoids NCommonTooltipsTickbox.OnUntick() crashing on
-            // null _settingsScreen when used outside the game's settings.
-            var clone = (Control)_sourceTickbox.Duplicate(0);
+            var clone = CloneHelper.Clone<Control>(_sourceTickbox, CloneHelper.VisualOnly)!;
             clone.CustomMinimumSize = new Vector2(320, 64);
             clone.SizeFlagsHorizontal = Control.SizeFlags.ShrinkEnd;
             clone.MouseFilter = Control.MouseFilterEnum.Stop;
@@ -802,10 +702,7 @@ internal static class DubiousConfigModal
         Node? actualSlider = null; // the NSlider clone, for setting value from text input
         if (_sourceSlider != null)
         {
-            // Duplicate(4) = DUPLICATE_SCRIPTS — keeps NSlider's _Ready/_Process
-            // for smooth handle animation and drag input. No signals copied, so
-            // the volume slider's SaveManager connection is not transferred.
-            var clone = _sourceSlider.Duplicate(4);
+            var clone = CloneHelper.Clone<Node>(_sourceSlider, CloneHelper.ScriptsOnly)!;
             clone.Set("min_value", 0.0);
             clone.Set("max_value", range);
             clone.Set("step", isInt ? 1.0 : 1.0);
