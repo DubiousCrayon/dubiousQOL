@@ -34,7 +34,8 @@ internal static class FontHelper
     /// </summary>
     public static Font? Load(string identifier)
     {
-        if (_cache.TryGetValue(identifier, out var cached))
+        if (_cache.TryGetValue(identifier, out var cached)
+            && (cached == null || GodotObject.IsInstanceValid(cached)))
             return cached;
 
         if (!_identifiers.TryGetValue(identifier, out var path))
@@ -80,7 +81,8 @@ internal static class FontHelper
     /// </summary>
     public static Godot.Theme? LoadTheme(string path)
     {
-        if (_themeCache.TryGetValue(path, out var cached))
+        if (_themeCache.TryGetValue(path, out var cached)
+            && cached != null && GodotObject.IsInstanceValid(cached))
             return cached;
 
         Godot.Theme? theme = null;

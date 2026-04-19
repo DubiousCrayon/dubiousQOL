@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using dubiousQOL.Config;
 using Godot;
 using HarmonyLib;
-using MegaCrit.Sts2.Core.Commands;
 using MegaCrit.Sts2.Core.Nodes.CommonUi;
 using MegaCrit.Sts2.Core.Nodes.GodotExtensions;
 using MegaCrit.Sts2.Core.Nodes.Multiplayer;
@@ -115,38 +114,12 @@ internal static class DubiousConfigModal
         _ => fullName,
     };
 
-    // Source nodes from the live settings screen, cached per Open() call.
-    // Typed as Node because Godot's C# interop doesn't resolve game script
-    // types (NSettingsTab, NTickbox) when accessed via GetChildren/GetNode.
-    private static Node? _sourceTickbox;
-    private static Node? _sourceLabel;
-    private static Node? _sourceButton;
-    private static Node? _sourceSlider;
-
     public static void Open(NSettingsScreen settingsScreen)
     {
         try
         {
             var modal = NModalContainer.Instance;
             if (modal == null) return;
-
-            // Cache source nodes from the live settings screen for cloning
-            _sourceTickbox = settingsScreen.FindChild("SettingsTickbox", recursive: true, owned: false);
-            _sourceLabel = settingsScreen.GetNodeOrNull(
-                "ScrollContainer/Mask/Clipper/GeneralSettings/VBoxContainer/FastMode/Label");
-
-            if (_sourceTickbox == null) MainFile.Logger.Warn("ModConfigUI: source tickbox not found");
-            if (_sourceLabel == null) MainFile.Logger.Warn("ModConfigUI: source label not found");
-
-            _sourceButton = settingsScreen.GetNodeOrNull(
-                "ScrollContainer/Mask/Clipper/GeneralSettings/VBoxContainer/ResetGameplay/ResetGameplayButton");
-            if (_sourceButton == null) MainFile.Logger.Warn("ModConfigUI: source button not found");
-
-            // Cache the NSlider from the sound settings for styled slider cloning
-            var volumeSlider = settingsScreen.GetNodeOrNull(
-                "ScrollContainer/Mask/Clipper/SoundSettings/VBoxContainer/MasterVolume/MasterVolumeSlider");
-            _sourceSlider = volumeSlider?.GetNodeOrNull("Slider");
-            if (_sourceSlider == null) MainFile.Logger.Warn("ModConfigUI: source slider not found");
 
             // Hide the settings screen so it doesn't show through
             settingsScreen.Visible = false;
@@ -167,13 +140,6 @@ internal static class DubiousConfigModal
         {
             settingsScreen.Visible = true;
             MainFile.Logger.Warn($"ModConfigUI open: {e.Message}\n{e.StackTrace}");
-        }
-        finally
-        {
-            _sourceTickbox = null;
-            _sourceLabel = null;
-            _sourceButton = null;
-            _sourceSlider = null;
         }
     }
 
@@ -347,32 +313,8 @@ internal static class DubiousConfigModal
         restoreRow.AddThemeConstantOverride("margin_top", 20);
         restoreRow.CustomMinimumSize = new Vector2(0, 80);
 
-        Control restoreBtn;
-        if (_sourceButton != null)
-        {
-            var clone = CloneHelper.Clone<Control>(_sourceButton, CloneHelper.FullNoSignals)!;
-            clone.Name = "RestoreDefaultsButton";
-            clone.SizeFlagsHorizontal = Control.SizeFlags.ShrinkCenter;
-            // Set label text after _Ready populates MegaLabel internals.
-            // Ready signal fires after _Ready, so SetTextAutoSize can run.
-            // Use "Restore Defaults" (shorter) so text fits the hex texture.
-            clone.Ready += () =>
-            {
-                var lbl = clone.FindChild("Label", recursive: true, owned: false);
-                lbl?.Call("SetTextAutoSize", "Restore Defaults");
-            };
-            restoreBtn = clone;
-        }
-        else
-        {
-            restoreBtn = new Button
-            {
-                Text = "Restore to Defaults",
-                CustomMinimumSize = new Vector2(240, 48),
-                SizeFlagsHorizontal = Control.SizeFlags.ShrinkCenter,
-            };
-            ApplyGameFont((Button)restoreBtn, 24);
-        }
+        var (restoreBtn, isGameBtn) = WidgetHelper.CreateGameButton("Restore Defaults");
+        restoreBtn.Name = "RestoreDefaultsButton";
 
         if (config.Entries.Count == 0)
         {
@@ -384,7 +326,7 @@ internal static class DubiousConfigModal
         {
             var capturedControls = entryControls;
             var capturedConfig = config;
-            if (_sourceButton != null)
+            if (isGameBtn)
             {
                 restoreBtn.CallDeferred(NClickableControl.MethodName.Enable);
                 restoreBtn.Connect(NClickableControl.SignalName.Released,
@@ -473,33 +415,8 @@ internal static class DubiousConfigModal
     //  Game-styled UI factory helpers
     // ─────────────────────────────────────────────────────────
 
-    /// <summary>
-    /// Clones a RichTextLabel from the live settings screen for row labels.
-    /// This gives us the exact same MegaRichTextLabel with game fonts/theme.
-    /// </summary>
-    private static Control CloneSettingsLabel(string text)
-    {
-        if (_sourceLabel != null)
-        {
-            var clone = CloneHelper.Clone<Control>(_sourceLabel, CloneHelper.Full)!;
-            if (clone is RichTextLabel rtl)
-                rtl.Text = text;
-            clone.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
-            clone.CustomMinimumSize = new Vector2(0, 64);
-            return clone;
-        }
-        // Fallback if source not available
-        var label = new Label
-        {
-            Text = text,
-            VerticalAlignment = VerticalAlignment.Center,
-            MouseFilter = Control.MouseFilterEnum.Ignore,
-        };
-        label.AddThemeFontSizeOverride("font_size", 28);
-        label.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
-        label.CustomMinimumSize = new Vector2(0, 64);
-        return label;
-    }
+    private static Control CloneSettingsLabel(string text) =>
+        WidgetHelper.CreateGameLabel(text);
 
     /// <summary>
     /// MegaLabel for informational text (hints, descriptions) that doesn't
@@ -525,13 +442,6 @@ internal static class DubiousConfigModal
         return label;
     }
 
-    private static void ApplyGameFont(Control control, int fontSize)
-    {
-        var regular = FontHelper.Load("kreon-regular");
-        if (regular != null) control.AddThemeFontOverride("font", regular);
-        control.AddThemeFontSizeOverride("font_size", fontSize);
-    }
-
     private static ColorRect CreateDivider() => StyleHelper.CreateDivider(ModTheme.Divider);
 
     private static HBoxContainer CreateSettingsRow(string labelText)
@@ -546,106 +456,9 @@ internal static class DubiousConfigModal
         return hbox;
     }
 
-    /// <summary>
-    /// Clones the visual shell of a game-native NTickbox (no scripts) and
-    /// handles toggle logic manually. The source NCommonTooltipsTickbox has
-    /// an OnUntick override that NullRefs outside the settings screen, so we
-    /// strip scripts and drive the visuals ourselves.
-    /// Falls back to a plain CheckBox if the source isn't available.
-    /// </summary>
     private static Control CreateGameTickbox(bool initialValue, Action<bool> onChanged)
-    {
-        if (_sourceTickbox != null)
-        {
-            var clone = CloneHelper.Clone<Control>(_sourceTickbox, CloneHelper.VisualOnly)!;
-            clone.CustomMinimumSize = new Vector2(320, 64);
-            clone.SizeFlagsHorizontal = Control.SizeFlags.ShrinkEnd;
-            clone.MouseFilter = Control.MouseFilterEnum.Stop;
+        => WidgetHelper.CreateGameTickbox(initialValue, onChanged);
 
-            var tickedImg = clone.FindChild("Ticked", recursive: true, owned: false) as Control;
-            var notTickedImg = clone.FindChild("NotTicked", recursive: true, owned: false) as Control;
-            var visuals = clone.FindChild("TickboxVisuals", recursive: true, owned: false) as Control;
-            var baseScale = visuals?.Scale ?? Vector2.One;
-            // The shader material is shared across all clones from the same
-            // source — duplicate it so each tickbox has independent brightness.
-            if (visuals?.Material is ShaderMaterial shared)
-                visuals.Material = (ShaderMaterial)shared.Duplicate();
-            var hsv = visuals?.Material as ShaderMaterial;
-
-            bool ticked = initialValue;
-            if (tickedImg != null) tickedImg.Visible = ticked;
-            if (notTickedImg != null) notTickedImg.Visible = !ticked;
-
-            // Emulate NTickbox hover/press/release visual effects.
-            Tween? activeTween = null;
-            void TweenVisuals(Vector2 targetScale, float targetV, double duration)
-            {
-                activeTween?.Kill();
-                if (visuals == null) return;
-                activeTween = clone.CreateTween().SetParallel();
-                activeTween.TweenProperty(visuals, "scale", targetScale, duration);
-                if (hsv != null)
-                    activeTween.TweenMethod(
-                        Callable.From<float>(v => hsv.SetShaderParameter("v", v)),
-                        hsv.GetShaderParameter("v"), targetV, duration);
-            }
-
-            clone.MouseEntered += () =>
-            {
-                SfxCmd.Play("event:/sfx/ui/clicks/ui_hover");
-                TweenVisuals(baseScale * 1.05f, 1.2f, 0.05);
-            };
-            clone.MouseExited += () =>
-            {
-                TweenVisuals(baseScale, 1f, 0.5);
-            };
-
-            bool isPressed = false;
-            clone.GuiInput += inputEvent =>
-            {
-                if (inputEvent is InputEventMouseButton mb
-                    && mb.ButtonIndex == MouseButton.Left)
-                {
-                    if (mb.Pressed)
-                    {
-                        isPressed = true;
-                        TweenVisuals(baseScale * 0.95f, 0.8f, 0.5);
-                    }
-                    else if (isPressed)
-                    {
-                        isPressed = false;
-                        ticked = !ticked;
-                        if (tickedImg != null) tickedImg.Visible = ticked;
-                        if (notTickedImg != null) notTickedImg.Visible = !ticked;
-                        SfxCmd.Play(ticked
-                            ? "event:/sfx/ui/clicks/ui_checkbox_on"
-                            : "event:/sfx/ui/clicks/ui_checkbox_off");
-                        TweenVisuals(baseScale * 1.05f, 1.2f, 0.05);
-                        onChanged(ticked);
-                    }
-                }
-            };
-
-            return clone;
-        }
-
-        // Fallback: plain Godot CheckBox
-        var cb = new CheckBox
-        {
-            ButtonPressed = initialValue,
-            CustomMinimumSize = new Vector2(64, 64),
-            SizeFlagsHorizontal = Control.SizeFlags.ShrinkEnd,
-        };
-        cb.Toggled += v => onChanged(v);
-        return cb;
-    }
-
-    /// <summary>
-    /// Creates a slider + editable value input. When a game NSlider source is
-    /// available, clones it for the styled diamond handle and thick track.
-    /// Falls back to a plain HSlider. Value label is editable (click to type).
-    /// Layout matches the game: value on left, slider on right.
-    /// </summary>
     private static Control CreateGameSlider(FeatureConfig config, ConfigEntry entry)
     {
         bool isInt = entry.Type == ConfigEntryType.Int;
@@ -653,170 +466,14 @@ internal static class DubiousConfigModal
         double max = entry.Max ?? 9999;
         double val = isInt ? (int)entry.Value : (float)entry.Value;
 
-        var container = new HBoxContainer { Name = "SliderContainer" };
-        container.AddThemeConstantOverride("separation", 0);
-        container.SizeFlagsHorizontal = Control.SizeFlags.ShrinkEnd;
-        container.CustomMinimumSize = new Vector2(0, 64);
-
-        string FormatValue(double v) => isInt ? ((int)v).ToString() : v.ToString("F0");
-
-        // Editable value input — styled to match the game's MegaLabel look
-        // (transparent background, game font, cream color) but still editable.
-        var input = new LineEdit
+        return WidgetHelper.CreateGameSlider(val, min, max, isInt, realVal =>
         {
-            Name = "ConfigValue",
-            Text = FormatValue(val),
-            CustomMinimumSize = new Vector2(25, 40),
-            SizeFlagsHorizontal = Control.SizeFlags.ShrinkEnd,
-            SizeFlagsVertical = Control.SizeFlags.ShrinkCenter,
-            Alignment = HorizontalAlignment.Center,
-            Flat = true,
-        };
-        ApplyGameFont(input, 28);
-        input.AddThemeConstantOverride("minimum_character_width", 3);
-        var inputColor = Colors.White;
-        input.AddThemeColorOverride("font_color", inputColor);
-        input.AddThemeColorOverride("font_uneditable_color", inputColor);
-        input.AddThemeColorOverride("caret_color", inputColor);
-        input.AddThemeColorOverride("font_selected_color", Colors.White);
-        input.AddThemeColorOverride("selection_color", new Color(0.4f, 0.5f, 0.6f, 0.5f));
-        // Transparent background normally; subtle highlight when focused.
-        var emptyBox = new StyleBoxEmpty();
-        input.AddThemeStyleboxOverride("normal", emptyBox);
-        input.AddThemeStyleboxOverride("read_only", emptyBox);
-        var focusBox = new StyleBoxFlat
-        {
-            BgColor = new Color(0.2f, 0.22f, 0.28f, 0.6f),
-            CornerRadiusBottomLeft = 4, CornerRadiusBottomRight = 4,
-            CornerRadiusTopLeft = 4, CornerRadiusTopRight = 4,
-        };
-        input.AddThemeStyleboxOverride("focus", focusBox);
-        container.AddChild(input);
-
-        // NSlider's SetValueBasedOnMousePosition assumes MinValue=0, so we
-        // normalize to [0, max-min] and offset when reading/writing.
-        double range = max - min;
-        double normalizedVal = val - min;
-
-        Control sliderNode;
-        Node? actualSlider = null; // the NSlider clone, for setting value from text input
-        if (_sourceSlider != null)
-        {
-            var clone = CloneHelper.Clone<Node>(_sourceSlider, CloneHelper.ScriptsOnly)!;
-            clone.Set("min_value", 0.0);
-            clone.Set("max_value", range);
-            clone.Set("step", isInt ? 1.0 : 1.0);
-
-            var cloneCtrl = (Control)clone;
-            cloneCtrl.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
-            cloneCtrl.CustomMinimumSize = new Vector2(0, 64);
-
-            clone.Set("value", normalizedVal);
-
-            // NSlider._Ready uses GetNode<Control>("%Handle") but the %
-            // unique-name lookup fails on duplicated nodes (owner not set).
-            // Re-resolve it after _Ready runs via the Ready signal, then
-            // snap the handle to the initial value without animation.
-            double initVal = normalizedVal;
-            clone.Ready += () =>
-            {
-                var h = clone.FindChild("Handle", recursive: false, owned: false);
-                if (h != null)
-                    clone.Set("_handle", h);
-                clone.Call("SetValueWithoutAnimation", initVal);
-            };
-
-            clone.Connect(Godot.Range.SignalName.ValueChanged, Callable.From<double>(sliderVal =>
-            {
-                double realVal = sliderVal + min;
-                if (isInt)
-                    entry.Value = (int)realVal;
-                else
-                    entry.Value = (float)realVal;
-                if (!input.HasFocus())
-                    input.Text = FormatValue(realVal);
-                config.Save();
-            }));
-
-            // Wrap in a MarginContainer so the handle diamond has room to
-            // overhang at 0% and 100% without clipping.
-            var sliderMargin = new MarginContainer
-            {
-                SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
-                CustomMinimumSize = new Vector2(324, 64),
-            };
-            sliderMargin.AddThemeConstantOverride("margin_left", 20);
-            sliderMargin.AddThemeConstantOverride("margin_right", 20);
-            sliderMargin.AddChild(cloneCtrl);
-            actualSlider = clone;
-            sliderNode = sliderMargin;
-        }
-        else
-        {
-            // Fallback: plain Godot HSlider
-            var slider = new HSlider
-            {
-                Name = "ConfigSlider",
-                MinValue = min,
-                MaxValue = max,
-                Value = val,
-                Step = isInt ? 1 : 1,
-                CustomMinimumSize = new Vector2(250, 0),
-                SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
-                SizeFlagsVertical = Control.SizeFlags.ShrinkCenter,
-            };
-            slider.ValueChanged += v =>
-            {
-                if (isInt)
-                    entry.Value = (int)v;
-                else
-                    entry.Value = (float)v;
-                if (!input.HasFocus())
-                    input.Text = FormatValue(v);
-                config.Save();
-            };
-            sliderNode = slider;
-        }
-        container.AddChild(sliderNode);
-
-        // Wire editable input → slider sync. Don't clamp here — let the
-        // user finish typing. Clamping happens on submit / focus-exit.
-        input.TextChanged += text =>
-        {
-            if (double.TryParse(text, out var v))
-            {
-                double clamped = Mathf.Clamp(v, min, max);
-                if (actualSlider != null)
-                    actualSlider.Set("value", clamped - min);
-                else
-                    ((HSlider)sliderNode).Value = clamped;
-            }
-        };
-
-        void ClampInputText()
-        {
-            if (double.TryParse(input.Text, out var v))
-            {
-                v = Mathf.Clamp(v, min, max);
-                input.Text = FormatValue(v);
-            }
+            if (isInt)
+                entry.Value = (int)realVal;
             else
-            {
-                input.Text = FormatValue(isInt ? (int)entry.Value : (float)entry.Value);
-            }
-        }
-
-        input.TextSubmitted += _ => { ClampInputText(); input.ReleaseFocus(); };
-        input.FocusExited += ClampInputText;
-
-        // Release input focus when clicking anywhere outside it (e.g. the slider).
-        container.GuiInput += inputEvent =>
-        {
-            if (inputEvent is InputEventMouseButton { Pressed: true } && input.HasFocus())
-                input.ReleaseFocus();
-        };
-
-        return container;
+                entry.Value = (float)realVal;
+            config.Save();
+        });
     }
 
     // ─────────────────────────────────────────────────────────
@@ -916,45 +573,16 @@ internal static class DubiousConfigModal
         switch (entry.Type)
         {
             case ConfigEntryType.Bool:
-            {
-                bool val = (bool)entry.Value;
-                if (last is CheckBox cb)
-                {
-                    cb.SetPressedNoSignal(val);
-                }
-                else
-                {
-                    // Scriptless tickbox clone — toggle visibility of Ticked/NotTicked children
-                    var ticked = (last as Control)?.FindChild("Ticked", recursive: true, owned: false) as Control;
-                    var notTicked = (last as Control)?.FindChild("NotTicked", recursive: true, owned: false) as Control;
-                    if (ticked != null) ticked.Visible = val;
-                    if (notTicked != null) notTicked.Visible = !val;
-                }
+                if (last is Control tickbox)
+                    WidgetHelper.SetTickboxValue(tickbox, (bool)entry.Value);
                 break;
-            }
             case ConfigEntryType.Int:
             case ConfigEntryType.Float:
-            {
-                if (last is not HBoxContainer sliderBox) break;
-                var input = sliderBox.GetNodeOrNull<LineEdit>("ConfigValue");
-                bool isInt = entry.Type == ConfigEntryType.Int;
-                double v = isInt ? (int)entry.Value : (float)entry.Value;
-                double min = entry.Min ?? 0;
-
-                // Find slider: game clone named "Slider" (may be nested in
-                // MarginContainer) or fallback "ConfigSlider"
-                var slider = sliderBox.FindChild("Slider", recursive: true, owned: false) as Godot.Range
-                          ?? sliderBox.GetNodeOrNull<Godot.Range>("ConfigSlider");
-                if (slider != null)
-                {
-                    // Game NSlider uses normalized range [0, max-min]
-                    bool isGameSlider = slider.Name == "Slider";
-                    slider.Set("value", isGameSlider ? v - min : v);
-                }
-                if (input != null)
-                    input.Text = isInt ? ((int)v).ToString() : v.ToString("F0");
+                if (last is Control sliderContainer)
+                    WidgetHelper.SetSliderValue(sliderContainer,
+                        entry.Type == ConfigEntryType.Int ? (int)entry.Value : (float)entry.Value,
+                        entry.Min ?? 0, entry.Type == ConfigEntryType.Int);
                 break;
-            }
             case ConfigEntryType.Color when last is ColorPickerButton picker:
                 picker.Color = (Color)entry.Value;
                 break;
