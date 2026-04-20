@@ -10,6 +10,7 @@ internal static class Theme
 {
     // --- Panel backgrounds ---
     public static readonly Color PanelBg = new(0.12f, 0.14f, 0.18f, 0.92f);
+    public static readonly Color PanelBgGame = new(0.117647f, 0.168627f, 0.188235f, 0.501961f);
     public static readonly Color PanelBgDark = new(0.06f, 0.06f, 0.10f, 0.90f);
     public static readonly Color PanelBorder = new(0.3f, 0.3f, 0.4f, 0.5f);
     public static readonly Color TitleBarBg = new(0.10f, 0.10f, 0.16f, 0.95f);

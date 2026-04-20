@@ -13,6 +13,7 @@ using MegaCrit.Sts2.Core.Nodes.Screens.RunHistoryScreen;
 using MegaCrit.Sts2.Core.Nodes.Screens.ScreenContext;
 
 using dubiousQOL.UI;
+using dubiousQOL.Utilities;
 using ModTheme = dubiousQOL.UI.Theme;
 
 namespace dubiousQOL.Patches;
@@ -46,6 +47,8 @@ internal static class RunHistoryStatsViewerModal
 internal partial class RunHistoryStatsViewer : Control, IScreenContext
 {
     private const int MaxSourceRows = 10;
+
+    private static Font? _kreonFont;
 
     public Control? DefaultFocusedControl => null;
 
@@ -109,6 +112,8 @@ internal partial class RunHistoryStatsViewer : Control, IScreenContext
 
     private void Build()
     {
+        _kreonFont ??= FontHelper.Load("kreon-bold");
+
         // Build tab names.
         var tabNames = new List<string> { "Run Summary" };
         foreach (var actIdx in _actIndices)
@@ -123,7 +128,14 @@ internal partial class RunHistoryStatsViewer : Control, IScreenContext
         AddChild(tabBar);
         _tabs.AddRange(tabs);
 
-        // Scrollable content area.
+        // Fade mask — gradient TextureRect with clip_children clips content at edges.
+        var fadeMask = StyleHelper.CreateScrollFadeMask(fadePixels: 100f, totalHeight: 890f);
+        fadeMask.SetAnchorsPreset(LayoutPreset.FullRect);
+        fadeMask.OffsetTop = 170;
+        fadeMask.OffsetBottom = -20;
+        AddChild(fadeMask);
+
+        // Scrollable content area inside the fade mask.
         _scroll = new ScrollContainer
         {
             Name = "StatsScroll",
@@ -131,9 +143,12 @@ internal partial class RunHistoryStatsViewer : Control, IScreenContext
         };
         _scroll.AnchorLeft = 0f; _scroll.AnchorRight = 1f;
         _scroll.AnchorTop = 0f; _scroll.AnchorBottom = 1f;
-        _scroll.OffsetLeft = 200; _scroll.OffsetRight = -200;
-        _scroll.OffsetTop = 160; _scroll.OffsetBottom = -40;
-        AddChild(_scroll);
+        _scroll.OffsetLeft = 320; _scroll.OffsetRight = -440;
+        _scroll.OffsetTop = 0; _scroll.OffsetBottom = 0;
+        fadeMask.AddChild(_scroll);
+
+        // Replace the default Godot scrollbar with the game's styled scrollbar.
+        StyleScrollbar(_scroll);
 
         // Build pages.
         _pages.Add(BuildRunSummaryPage());
@@ -161,15 +176,57 @@ internal partial class RunHistoryStatsViewer : Control, IScreenContext
         DmSidecarScope? runScope = null;
         _sidecar.Scopes?.TryGetValue("run", out runScope);
 
-        // --- Full Run Summary ---
-        vbox.AddChild(CreateSectionHeader("Run Summary"));
+        // --- Per-Act Summaries (at the top, in a panel) ---
+        if (_actIndices.Count > 0 && _sidecar.Combats != null)
+        {
+            vbox.AddChild(CreateSectionHeader("Run Totals"));
 
+            var totalsPanel = CreateDarkPanel();
+            var totalsVbox = new VBoxContainer();
+            totalsVbox.AddThemeConstantOverride("separation", 16);
+            totalsPanel.AddChild(totalsVbox);
+
+            foreach (var actIdx in _actIndices)
+            {
+                var actCombats = _sidecar.Combats.Where(c => c.Act == actIdx).ToList();
+                if (actCombats.Count == 0) continue;
+
+                long actDmg = 0, actBlk = 0, actHp = 0;
+                int actTurns = 0;
+                foreach (var c in actCombats)
+                {
+                    actDmg += SumPlayerStat(c.Players, p => p.DamageDealt);
+                    actBlk += SumPlayerStat(c.Players, p => p.BlockGained);
+                    actHp += SumPlayerStat(c.Players, p => p.HpLost);
+                    actTurns += c.PlayerTurns;
+                }
+
+                var actLabel = StyleHelper.CreateSubSectionHeader($"Act {actIdx + 1}", ModTheme.SectionHeader, 22, 0, 28f);
+                totalsVbox.AddChild(actLabel);
+
+                var actSummary = new HBoxContainer { MouseFilter = MouseFilterEnum.Ignore };
+                actSummary.AddThemeConstantOverride("separation", 32);
+                actSummary.AddChild(CreateStatChip("DMG", actDmg, ModTheme.Damage));
+                actSummary.AddChild(CreateStatChip("BLK", actBlk, ModTheme.Block));
+                actSummary.AddChild(CreateStatChip("HP\u2009Lost", actHp, ModTheme.HpLost));
+                actSummary.AddChild(CreateStatChip("Turns", actTurns, ModTheme.TextLabel));
+                actSummary.AddChild(CreateStatChip("Encounters", actCombats.Count, ModTheme.TextDim));
+                totalsVbox.AddChild(actSummary);
+
+                if (actIdx != _actIndices[^1])
+                    totalsVbox.AddChild(StyleHelper.CreateDivider(ModTheme.Divider, 1f));
+            }
+
+            vbox.AddChild(totalsPanel);
+        }
+
+        // --- Per-Player Breakdowns ---
         if (runScope != null && runScope.Players.Count > 0)
         {
             foreach (var player in runScope.Players)
             {
-                if (runScope.Players.Count > 1)
-                    vbox.AddChild(CreateEncounterHeader(player.Character ?? $"Player {player.NetId}", ""));
+                string playerLabel = FormatPlayerHeader(player, runScope.Players.Count > 1);
+                vbox.AddChild(CreateSectionHeader(playerLabel));
 
                 // Summary chips row.
                 var summaryRow = new HBoxContainer { MouseFilter = MouseFilterEnum.Ignore };
@@ -215,37 +272,6 @@ internal partial class RunHistoryStatsViewer : Control, IScreenContext
                 grid.AddChild(CreateStatRow("Block Gained", player.BlockGained.ToString("N0"), ModTheme.Block));
                 grid.AddChild(CreateStatRow("HP Lost", player.HpLost.ToString("N0"), ModTheme.HpLost));
                 vbox.AddChild(panel);
-            }
-        }
-
-        // --- Per-Act Summaries ---
-        if (_actIndices.Count > 0 && _sidecar.Combats != null)
-        {
-            foreach (var actIdx in _actIndices)
-            {
-                var actCombats = _sidecar.Combats.Where(c => c.Act == actIdx).ToList();
-                if (actCombats.Count == 0) continue;
-
-                vbox.AddChild(CreateSectionHeader($"Act {actIdx + 1}"));
-
-                long actDmg = 0, actBlk = 0, actHp = 0;
-                int actTurns = 0;
-                foreach (var c in actCombats)
-                {
-                    actDmg += SumPlayerStat(c.Players, p => p.DamageDealt);
-                    actBlk += SumPlayerStat(c.Players, p => p.BlockGained);
-                    actHp += SumPlayerStat(c.Players, p => p.HpLost);
-                    actTurns += c.PlayerTurns;
-                }
-
-                var actSummary = new HBoxContainer { MouseFilter = MouseFilterEnum.Ignore };
-                actSummary.AddThemeConstantOverride("separation", 32);
-                actSummary.AddChild(CreateStatChip("DMG", actDmg, ModTheme.Damage));
-                actSummary.AddChild(CreateStatChip("BLK", actBlk, ModTheme.Block));
-                actSummary.AddChild(CreateStatChip("HP\u2009Lost", actHp, ModTheme.HpLost));
-                actSummary.AddChild(CreateStatChip("Turns", actTurns, ModTheme.TextLabel));
-                actSummary.AddChild(CreateStatChip("Encounters", actCombats.Count, ModTheme.TextDim));
-                vbox.AddChild(actSummary);
             }
         }
 
@@ -454,6 +480,7 @@ internal partial class RunHistoryStatsViewer : Control, IScreenContext
         };
         nameLabel.AddThemeFontSizeOverride("font_size", fontSize);
         nameLabel.AddThemeColorOverride("font_color", ModTheme.TextLabel);
+        ApplyFont(nameLabel);
         row.AddChild(nameLabel);
 
         // Value.
@@ -467,6 +494,7 @@ internal partial class RunHistoryStatsViewer : Control, IScreenContext
         };
         valueLabel.AddThemeFontSizeOverride("font_size", fontSize);
         valueLabel.AddThemeColorOverride("font_color", ModTheme.TextValue);
+        ApplyFont(valueLabel);
         row.AddChild(valueLabel);
 
         // Percentage.
@@ -480,18 +508,19 @@ internal partial class RunHistoryStatsViewer : Control, IScreenContext
         };
         pctLabel.AddThemeFontSizeOverride("font_size", fontSize - 2);
         pctLabel.AddThemeColorOverride("font_color", ModTheme.TextDim);
+        ApplyFont(pctLabel);
         row.AddChild(pctLabel);
 
         return root;
     }
 
     private static PanelContainer CreateDarkPanel() =>
-        StyleHelper.CreateDarkPanel(ModTheme.PanelBg);
+        StyleHelper.CreateDarkPanel(ModTheme.PanelBgGame, cornerRadius: 0);
 
     private static Control CreateSectionHeader(string text) =>
         StyleHelper.CreateSectionHeader(text, ModTheme.SectionHeader);
 
-    private static Label CreateEncounterHeader(string text, string roomType)
+    private static Control CreateEncounterHeader(string text, string roomType)
     {
         Color color = roomType switch
         {
@@ -499,7 +528,7 @@ internal partial class RunHistoryStatsViewer : Control, IScreenContext
             "Elite" => ModTheme.RoomElite,
             _ => ModTheme.SubSectionHeader,
         };
-        return StyleHelper.CreateSubSectionHeader(text, color);
+        return StyleHelper.CreateSectionHeader(text, color, fontSize: 28, outlineSize: 5);
     }
 
     private static Label CreateMiniSectionLabel(string text) =>
@@ -518,6 +547,7 @@ internal partial class RunHistoryStatsViewer : Control, IScreenContext
         };
         labelNode.AddThemeFontSizeOverride("font_size", 18);
         labelNode.AddThemeColorOverride("font_color", ModTheme.TextDim);
+        ApplyFont(labelNode);
         hbox.AddChild(labelNode);
 
         var valueNode = new Label
@@ -528,6 +558,7 @@ internal partial class RunHistoryStatsViewer : Control, IScreenContext
         };
         valueNode.AddThemeFontSizeOverride("font_size", 22);
         valueNode.AddThemeColorOverride("font_color", color);
+        ApplyFont(valueNode);
         hbox.AddChild(valueNode);
 
         return hbox;
@@ -548,6 +579,7 @@ internal partial class RunHistoryStatsViewer : Control, IScreenContext
         };
         lblNode.AddThemeFontSizeOverride("font_size", 22);
         lblNode.AddThemeColorOverride("font_color", ModTheme.TextLabel);
+        ApplyFont(lblNode);
         row.AddChild(lblNode);
 
         var valNode = new Label
@@ -559,6 +591,7 @@ internal partial class RunHistoryStatsViewer : Control, IScreenContext
         };
         valNode.AddThemeFontSizeOverride("font_size", 22);
         valNode.AddThemeColorOverride("font_color", valueColor);
+        ApplyFont(valNode);
         row.AddChild(valNode);
 
         return row;
@@ -573,6 +606,7 @@ internal partial class RunHistoryStatsViewer : Control, IScreenContext
         };
         lbl.AddThemeFontSizeOverride("font_size", fontSize);
         lbl.AddThemeColorOverride("font_color", color);
+        ApplyFont(lbl);
         return lbl;
     }
 
@@ -583,6 +617,20 @@ internal partial class RunHistoryStatsViewer : Control, IScreenContext
             CustomMinimumSize = horizontal ? new Vector2(height, 0) : new Vector2(0, height),
             MouseFilter = MouseFilterEnum.Ignore,
         };
+    }
+
+    private static string FormatPlayerHeader(DmSidecarPlayer player, bool isMultiplayer)
+    {
+        string character = player.Character ?? $"Player {player.NetId}";
+        if (isMultiplayer && !string.IsNullOrEmpty(player.Name))
+            return $"{player.Name} \u2014 {character}";
+        return character;
+    }
+
+    private static void ApplyFont(Label label)
+    {
+        if (_kreonFont != null)
+            label.AddThemeFontOverride("font", _kreonFont);
     }
 
     private static long SumPlayerStat(List<DmSidecarPlayer> players, Func<DmSidecarPlayer, long> selector)
@@ -603,5 +651,77 @@ internal partial class RunHistoryStatsViewer : Control, IScreenContext
         }
         catch { }
         return encounterId;
+    }
+
+    /// <summary>
+    /// Hides the default Godot VScrollBar and overlays the game's styled NScrollbar,
+    /// syncing scroll position bidirectionally. The scrollbar is added as a sibling
+    /// of the fadeMask so it's not affected by the fade clipping.
+    /// </summary>
+    private void StyleScrollbar(ScrollContainer scroll)
+    {
+        // The scrollbar IS the root of its scene, so instantiate directly
+        // (ExtractFromScene would QueueFree the root, destroying what we just created).
+        NScrollbar? gameScrollbar = null;
+        try
+        {
+            var packed = ResourceLoader.Load<PackedScene>(
+                "res://scenes/ui/scrollbar.tscn", null, ResourceLoader.CacheMode.Reuse);
+            if (packed != null)
+                gameScrollbar = packed.Instantiate<NScrollbar>(PackedScene.GenEditState.Disabled);
+        }
+        catch (Exception e) { MainFile.Logger.Warn($"RunHistoryStats scrollbar: {e.Message}"); }
+        if (gameScrollbar == null)
+        {
+            MainFile.Logger.Warn("RunHistoryStats: could not instantiate game scrollbar");
+            return;
+        }
+
+        // Hide the built-in VScrollBar visually (still drives scroll logic).
+        var vbar = scroll.GetVScrollBar();
+        vbar.AddThemeStyleboxOverride("scroll", new StyleBoxEmpty());
+        vbar.AddThemeStyleboxOverride("grabber", new StyleBoxEmpty());
+        vbar.AddThemeStyleboxOverride("grabber_highlight", new StyleBoxEmpty());
+        vbar.AddThemeStyleboxOverride("grabber_pressed", new StyleBoxEmpty());
+        vbar.CustomMinimumSize = new Vector2(0, 0);
+
+        // Position the game scrollbar to the right of the content area.
+        gameScrollbar.Name = "GameScrollbar";
+        gameScrollbar.AnchorLeft = 0.5f; gameScrollbar.AnchorRight = 0.5f;
+        gameScrollbar.AnchorTop = 0.5f; gameScrollbar.AnchorBottom = 0.5f;
+        gameScrollbar.OffsetLeft = 600; gameScrollbar.OffsetRight = 648;
+        gameScrollbar.OffsetTop = -323; gameScrollbar.OffsetBottom = 477;
+        gameScrollbar.CustomMinimumSize = new Vector2(48, 800);
+        AddChild(gameScrollbar);
+
+        // Sync: ScrollContainer VScrollBar → game scrollbar.
+        // The VScrollBar range is [0, maxValue] where maxValue = content height - visible height.
+        // NScrollbar expects 0–100 percentage.
+        vbar.ValueChanged += value =>
+        {
+            double range = vbar.MaxValue - vbar.Page;
+            if (range > 0)
+            {
+                double pct = value / range * 100.0;
+                gameScrollbar.SetValueWithoutAnimation(pct);
+            }
+        };
+
+        // Sync: game scrollbar drag → ScrollContainer.
+        gameScrollbar.Connect("value_changed", Callable.From<double>(val =>
+        {
+            double range = vbar.MaxValue - vbar.Page;
+            if (range > 0 && gameScrollbar.MaxValue > 0)
+            {
+                double pct = val / gameScrollbar.MaxValue;
+                scroll.ScrollVertical = (int)(pct * range);
+            }
+        }));
+
+        // Show/hide based on whether content overflows.
+        vbar.Connect("changed", Callable.From(() =>
+        {
+            gameScrollbar.Visible = vbar.MaxValue > vbar.Page;
+        }));
     }
 }

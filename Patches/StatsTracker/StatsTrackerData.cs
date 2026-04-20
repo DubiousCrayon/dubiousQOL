@@ -20,6 +20,8 @@ using MegaCrit.Sts2.Core.Models.Orbs;
 using MegaCrit.Sts2.Core.Models.Potions;
 using MegaCrit.Sts2.Core.Models.Powers;
 using MegaCrit.Sts2.Core.Models.Relics;
+using MegaCrit.Sts2.Core.Multiplayer;
+using MegaCrit.Sts2.Core.Multiplayer.Game;
 using MegaCrit.Sts2.Core.Platform;
 using MegaCrit.Sts2.Core.Rooms;
 using MegaCrit.Sts2.Core.Runs;
@@ -424,6 +426,9 @@ internal static class StatsTrackerData
 
         if (d.Receiver != null && d.Receiver.Side == CombatSide.Enemy)
         {
+            // Skip cosmetic damage against creatures showing infinite HP (Door, WaterfallGiant).
+            if (d.Receiver.ShowsInfiniteHp) return;
+
             var dealer = d.Dealer;
             if (dealer != null)
             {
@@ -713,6 +718,7 @@ public static class PatchRestoreStatsMultiPlayer
 internal sealed class DmSidecarPlayer
 {
     [JsonPropertyName("netId")] public string NetId { get; set; } = "";
+    [JsonPropertyName("name")] public string? Name { get; set; }
     [JsonPropertyName("character")] public string? Character { get; set; }
     [JsonPropertyName("damageDealt")] public long DamageDealt { get; set; }
     [JsonPropertyName("blockGained")] public long BlockGained { get; set; }
@@ -773,9 +779,13 @@ internal static class StatsTrackerIO
             string? character = null;
             try { character = state?.GetPlayer(kv.Key)?.Character?.Title.GetFormattedText(); }
             catch { }
+            string? playerName = null;
+            try { playerName = ResolvePlayerName(kv.Key); }
+            catch { }
             result.Players.Add(new DmSidecarPlayer
             {
                 NetId = kv.Key.ToString(),
+                Name = playerName,
                 Character = character,
                 DamageDealt = kv.Value.DamageDealt,
                 BlockGained = kv.Value.BlockGained,
@@ -786,6 +796,17 @@ internal static class StatsTrackerIO
             });
         }
         return result;
+    }
+
+    private static string? ResolvePlayerName(ulong netId)
+    {
+        var net = RunManager.Instance?.NetService;
+        if (net == null) return null;
+        ulong lookupId = netId;
+        if (net.Type == NetGameType.Singleplayer && netId == NetSingleplayerGameService.defaultNetId)
+            lookupId = PlatformUtil.GetLocalPlayerId(net.Platform);
+        var name = PlatformUtil.GetPlayerName(net.Platform, lookupId);
+        return !string.IsNullOrEmpty(name) && name != lookupId.ToString() ? name : null;
     }
 
     // End-of-run sidecar: full run stats with breakdowns and combat snapshots.

@@ -1,3 +1,4 @@
+using System;
 using Godot;
 using MegaCrit.Sts2.addons.mega_text;
 
@@ -73,18 +74,20 @@ internal static class StyleHelper
     /// Creates a MegaLabel section header with outline and shadow effects.
     /// </summary>
     public static MegaLabel CreateSectionHeader(string text, Color color, int fontSize = 36,
-        int outlineSize = 6)
+        int outlineSize = 8)
     {
         var lbl = new MegaLabel();
         lbl.MouseFilter = Control.MouseFilterEnum.Ignore;
         lbl.CustomMinimumSize = new Vector2(0, 52);
+        var font = FontHelper.Load("kreon-bold");
+        if (font != null) lbl.AddThemeFontOverride("font", font);
         lbl.AddThemeFontSizeOverride("font_size", fontSize);
         lbl.AddThemeColorOverride("font_color", color);
-        lbl.AddThemeColorOverride("font_outline_color", new Color(0.15f, 0.10f, 0f));
+        lbl.AddThemeColorOverride("font_outline_color", new Color(0.3f, 0.23f, 0.132f));
         lbl.AddThemeConstantOverride("outline_size", outlineSize);
-        lbl.AddThemeColorOverride("font_shadow_color", Theme.ShadowDefault);
-        lbl.AddThemeConstantOverride("shadow_offset_x", 2);
-        lbl.AddThemeConstantOverride("shadow_offset_y", 3);
+        lbl.AddThemeColorOverride("font_shadow_color", new Color(0f, 0f, 0f, 0.251f));
+        lbl.AddThemeConstantOverride("shadow_offset_x", 8);
+        lbl.AddThemeConstantOverride("shadow_offset_y", 6);
         lbl.SetTextAutoSize(text);
         return lbl;
     }
@@ -101,6 +104,8 @@ internal static class StyleHelper
             HorizontalAlignment = HorizontalAlignment.Left,
             MouseFilter = Control.MouseFilterEnum.Ignore,
         };
+        var font = FontHelper.Load("kreon-bold");
+        if (font != null) lbl.AddThemeFontOverride("font", font);
         lbl.AddThemeFontSizeOverride("font_size", fontSize);
         lbl.AddThemeColorOverride("font_color", color);
         lbl.AddThemeColorOverride("font_outline_color", new Color(0f, 0f, 0f));
@@ -124,5 +129,49 @@ internal static class StyleHelper
         lbl.AddThemeColorOverride("font_color", color ?? Theme.TextDim);
         lbl.CustomMinimumSize = new Vector2(0, minHeight);
         return lbl;
+    }
+
+    /// <summary>
+    /// Creates a TextureRect with a vertical alpha gradient and clip_children enabled.
+    /// Children added to this node are alpha-masked: fully visible in the middle,
+    /// fading to transparent over <paramref name="fadePixels"/> at top and bottom.
+    /// Matches the game's NScrollableContainer/Mask pattern (GradientTexture2D + ClipOnly).
+    /// </summary>
+    public static TextureRect CreateScrollFadeMask(float fadePixels = 50f, float totalHeight = 1080f)
+    {
+        float topEnd = Math.Min(fadePixels / totalHeight, 0.5f);
+        float botStart = 1f - topEnd;
+
+        var gradient = new Gradient
+        {
+            Offsets = new[] { 0f, topEnd, botStart, 1f },
+            Colors = new[]
+            {
+                new Color(1, 1, 1, 0f),
+                new Color(1, 1, 1, 1f),
+                new Color(1, 1, 1, 1f),
+                new Color(1, 1, 1, 0f),
+            },
+        };
+
+        var tex = new GradientTexture2D
+        {
+            Gradient = gradient,
+            Width = 4,
+            Height = Math.Max(1, (int)totalHeight),
+            Fill = GradientTexture2D.FillEnum.Linear,
+            FillFrom = new Vector2(0, 0),
+            FillTo = new Vector2(0, 1),
+        };
+
+        var mask = new TextureRect
+        {
+            Texture = tex,
+            ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize,
+            StretchMode = TextureRect.StretchModeEnum.Scale,
+            MouseFilter = Control.MouseFilterEnum.Ignore,
+        };
+        mask.ClipChildren = (CanvasItem.ClipChildrenMode)1;
+        return mask;
     }
 }

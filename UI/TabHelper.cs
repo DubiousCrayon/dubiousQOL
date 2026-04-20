@@ -154,6 +154,7 @@ internal static class TabHelper
         }
     }
 
+
     /// <summary>
     /// Builds a tab bar with the given labels.
     /// tabsPerRow = 0 means single row (all tabs in one HBox).

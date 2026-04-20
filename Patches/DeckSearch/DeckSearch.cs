@@ -28,6 +28,9 @@ internal sealed class DeckSearchState
 
 public static class DeckSearchRegistry
 {
+    // Extra vertical space to push sort bar + cards down, clearing the relic row.
+    internal const float Nudge = 20f;
+
     internal static readonly ConditionalWeakTable<NDeckViewScreen, DeckSearchState> States = new();
 
     internal static DeckSearchState GetOrCreate(NDeckViewScreen screen)
@@ -120,6 +123,15 @@ public static class PatchDeckViewReady
             return;
         }
 
+        // Push the SortingOptions container down — it holds both SortingBg and the HBoxContainer
+        // with sort buttons, so nudging it moves everything together.
+        var sortingOptions = sortBg.GetParent<Control>();
+        if (sortingOptions != null)
+        {
+            sortingOptions.OffsetTop += DeckSearchRegistry.Nudge;
+            sortingOptions.OffsetBottom += DeckSearchRegistry.Nudge;
+        }
+
         var parent = sortBg.GetParent();
         parent.AddChild(searchBar);
         parent.MoveChild(searchBar, sortBg.GetIndex()); // sit just before the sort bg in z-order
@@ -133,7 +145,7 @@ public static class PatchDeckViewReady
         searchBar.OffsetRight = 167f;
         // Bottom edge sits just above the sort bar so the bar's white outline stays visible.
         searchBar.OffsetBottom = sortBg.OffsetTop - 12f;
-        searchBar.OffsetTop = searchBar.OffsetBottom - 40f;
+        searchBar.OffsetTop = searchBar.OffsetBottom - 52f;
         searchBar.MouseFilter = Control.MouseFilterEnum.Pass;
     }
 }
@@ -141,6 +153,14 @@ public static class PatchDeckViewReady
 [HarmonyPatch(typeof(NDeckViewScreen), "DisplayCards")]
 public static class PatchDeckViewDisplayCards
 {
+    [HarmonyPostfix]
+    public static void Postfix(NDeckViewScreen __instance)
+    {
+        if (!DeckSearchConfig.Instance.Enabled) return;
+        // When the original DisplayCards ran (no search filter), bump YOffset to match the nudged sort bar.
+        __instance._grid.YOffset = 100 + (int)DeckSearchRegistry.Nudge;
+    }
+
     [HarmonyPrefix]
     public static bool Prefix(NDeckViewScreen __instance)
     {
@@ -155,7 +175,7 @@ public static class PatchDeckViewDisplayCards
         var showUpgrades = GetShowUpgradesTicked(__instance);
         var filtered = FilterCards(__instance._cards, query, showUpgrades).ToList();
 
-        __instance._grid.YOffset = 100;
+        __instance._grid.YOffset = 100 + (int)DeckSearchRegistry.Nudge;
         __instance._grid.SetCards(filtered, __instance._pile.Type, __instance._sortingPriority);
 
         var topRow = __instance._grid.GetTopRowOfCardNodes();
