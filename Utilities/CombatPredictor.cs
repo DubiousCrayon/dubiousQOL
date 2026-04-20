@@ -17,11 +17,12 @@ namespace dubiousQOL.Utilities;
 /// Predicts incoming combat damage and HP loss for a player creature.
 ///
 /// Damage = enemy AttackIntent totals + hand end-of-turn damage cards
-/// (Burn/Decay/Infection/Toxic) minus predicted block, accounting for
-/// Buffer stacks and Osty absorption.
+/// (Burn/Decay/Infection/Toxic) + end-of-turn debuff power damage
+/// (Constrict/Disintegration/MagicBomb) minus predicted block, accounting
+/// for Buffer stacks and Osty absorption.
 ///
-/// HP loss = cards that inflict direct HP loss (Beckon/BadLuck/Regret),
-/// unblockable but still subject to BeatingRemnant cap.
+/// HP loss = cards that inflict direct HP loss (Beckon/BadLuck/Regret)
+/// + unblockable debuff damage (Demise), still subject to BeatingRemnant cap.
 ///
 /// Enemy intents inherit target-side mods (Intangible, TungstenRod, etc.)
 /// because AttackIntent.GetSingleDamage routes through Hook.ModifyDamage.
@@ -79,6 +80,25 @@ internal static class CombatPredictor
                             handDamage += ReadPreviewDamage(card, player);
                         break;
                 }
+            }
+        }
+
+        // Debuff powers that deal end-of-turn damage to the player.
+        foreach (var power in player.Powers)
+        {
+            switch (power)
+            {
+                case ConstrictPower constrict:
+                case MagicBombPower magicBomb:
+                case DisintegrationPower disintegration:
+                    if (bufferStacks > 0)
+                        bufferStacks--;
+                    else
+                        handDamage += power.Amount;
+                    break;
+                case DemisePower demise:
+                    hpLoss += power.Amount;
+                    break;
             }
         }
 

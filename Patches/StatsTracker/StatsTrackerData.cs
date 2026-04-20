@@ -93,6 +93,10 @@ internal static class StatsTrackerData
     // Set by orb damage prefixes (Lightning/Dark) so ResolveDamageSource can
     // label orb damage instead of falling through to the player character name.
     internal static string? CurrentDamageSource;
+    // Snapshot of CurrentDamageSource taken at the start of each CreatureCmd.Damage
+    // call. Using a separate field prevents async potion OnUse methods from losing
+    // their source when the Harmony postfix fires before the damage call.
+    internal static string? PendingDamageSource;
 
     private static bool _installed;
     private static bool _hookedHistory;
@@ -133,6 +137,14 @@ internal static class StatsTrackerData
         (typeof(PotionShapedRock), nameof(PotionShapedRock.OnUse)),
     };
 
+    // Powers that deal damage with the player as dealer and no cardSource.
+    // Same label-lookup pattern as orbs; prefix only (async methods).
+    private static readonly (Type type, string method, string label)[] DamagePowerPatches =
+    {
+        (typeof(ReflectPower), nameof(ReflectPower.AfterDamageReceived), "Reflect"),
+        (typeof(ThornsPower), nameof(ThornsPower.BeforeDamageReceived), "Thorns"),
+    };
+
     private static readonly (Type type, string method, string label)[] DamageOrbPatches =
     {
         (typeof(LightningOrb), nameof(LightningOrb.Passive), "Lightning Orb"),
@@ -142,16 +154,31 @@ internal static class StatsTrackerData
         (typeof(GlassOrb), nameof(GlassOrb.Evoke), "Glass Orb"),
     };
 
+    private static readonly (Type type, string method)[] BlockPotionPatches =
+    {
+        (typeof(BlockPotion), nameof(BlockPotion.OnUse)),
+        (typeof(Fortifier), nameof(Fortifier.OnUse)),
+    };
+
     private static readonly (Type type, string method, string label)[] BlockOrbPatches =
     {
         (typeof(FrostOrb), nameof(FrostOrb.Passive), "Frost Orb"),
         (typeof(FrostOrb), nameof(FrostOrb.Evoke), "Frost Orb"),
     };
 
-    // Lookup for orb label injection — populated during PatchSourceAttribution,
-    // read by OrbDamagePrefix/OrbBlockPrefix via __originalMethod.
+    // Powers that grant block with null CardPlay (not via a card play).
+    // Prefix only (async methods — postfix fires too early).
+    private static readonly (Type type, string method, string label)[] BlockPowerPatches =
+    {
+        (typeof(AfterimagePower), nameof(AfterimagePower.AfterCardPlayed), "Afterimage"),
+    };
+
+    // Lookup for label injection — populated during PatchSourceAttribution,
+    // read by prefix methods via __originalMethod.
     private static readonly Dictionary<MethodBase, string> _damageOrbLabels = new();
+    private static readonly Dictionary<MethodBase, string> _damagePowerLabels = new();
     private static readonly Dictionary<MethodBase, string> _blockOrbLabels = new();
+    private static readonly Dictionary<MethodBase, string> _blockPowerLabels = new();
 
     // Shared prefix/postfix methods used by manual Harmony patches.
     public static void RelicDamagePrefix(RelicModel __instance) =>
@@ -165,9 +192,21 @@ internal static class StatsTrackerData
         if (_damageOrbLabels.TryGetValue(__originalMethod, out var label))
             CurrentDamageSource = label;
     }
+    public static void PowerDamagePrefix(MethodBase __originalMethod)
+    {
+        if (_damagePowerLabels.TryGetValue(__originalMethod, out var label))
+            CurrentDamageSource = label;
+    }
+    public static void PotionBlockPrefix(PotionModel __instance) =>
+        CurrentBlockSource = __instance.Title.GetFormattedText();
     public static void OrbBlockPrefix(MethodBase __originalMethod)
     {
         if (_blockOrbLabels.TryGetValue(__originalMethod, out var label))
+            CurrentBlockSource = label;
+    }
+    public static void PowerBlockPrefix(MethodBase __originalMethod)
+    {
+        if (_blockPowerLabels.TryGetValue(__originalMethod, out var label))
             CurrentBlockSource = label;
     }
     public static void BlockSourcePostfix() =>
@@ -182,8 +221,20 @@ internal static class StatsTrackerData
         foreach (var (type, method) in DamageRelicPatches)
             harmony.Patch(AccessTools.Method(type, method), prefix: relicPfx, postfix: dmgPost);
 
+        // Potion OnUse methods are async Task — the Harmony postfix fires at
+        // the first yield, not when the method completes. Omit postfix; the
+        // PendingDamageSource snapshot in PatchDamageDealer.Prefix handles cleanup.
         foreach (var (type, method) in DamagePotionPatches)
-            harmony.Patch(AccessTools.Method(type, method), prefix: potionPfx, postfix: dmgPost);
+            harmony.Patch(AccessTools.Method(type, method), prefix: potionPfx);
+
+        // Power damage methods are async — prefix only, same as potions.
+        var powerDmgPfx = new HarmonyMethod(AccessTools.Method(typeof(StatsTrackerData), nameof(PowerDamagePrefix)));
+        foreach (var (type, method, label) in DamagePowerPatches)
+        {
+            var original = AccessTools.Method(type, method);
+            _damagePowerLabels[original] = label;
+            harmony.Patch(original, prefix: powerDmgPfx);
+        }
 
         var orbDmgPfx = new HarmonyMethod(AccessTools.Method(typeof(StatsTrackerData), nameof(OrbDamagePrefix)));
         foreach (var (type, method, label) in DamageOrbPatches)
@@ -201,6 +252,20 @@ internal static class StatsTrackerData
             _blockOrbLabels[original] = label;
             harmony.Patch(original, prefix: orbBlkPfx, postfix: blkPost);
         }
+
+        // Block powers: prefix only (async methods — postfix fires too early).
+        var powerBlkPfx = new HarmonyMethod(AccessTools.Method(typeof(StatsTrackerData), nameof(PowerBlockPrefix)));
+        foreach (var (type, method, label) in BlockPowerPatches)
+        {
+            var original = AccessTools.Method(type, method);
+            _blockPowerLabels[original] = label;
+            harmony.Patch(original, prefix: powerBlkPfx);
+        }
+
+        // Block potions: prefix only (async OnUse — postfix fires too early).
+        var potionBlkPfx = new HarmonyMethod(AccessTools.Method(typeof(StatsTrackerData), nameof(PotionBlockPrefix)));
+        foreach (var (type, method) in BlockPotionPatches)
+            harmony.Patch(AccessTools.Method(type, method), prefix: potionBlkPfx);
     }
 
     internal static DmScopeStats ForScope(DmScope scope) => scope switch
@@ -391,7 +456,7 @@ internal static class StatsTrackerData
             try { return cardSource.Title; }
             catch { return cardSource.GetType().Name; }
         }
-        if (CurrentDamageSource != null) return CurrentDamageSource;
+        if (PendingDamageSource != null) return PendingDamageSource;
         if (dealer != null)
         {
             try
@@ -411,15 +476,18 @@ internal static class StatsTrackerData
             try { return dealer.Monster.Title.GetFormattedText(); }
             catch { return dealer.Monster.GetType().Name; }
         }
-        if (dealer != null && dealer.IsPlayer)
-        {
-            try { return dealer.Player?.Character?.Title.GetFormattedText() ?? "Self"; }
-            catch { return "Self"; }
-        }
+        // For self-damage (player hitting themselves), prefer the specific source
+        // (card, relic, power) over the generic character name.
         if (cardSource != null)
         {
             try { return cardSource.Title; }
             catch { return cardSource.GetType().Name; }
+        }
+        if (PendingDamageSource != null) return PendingDamageSource;
+        if (dealer != null && dealer.IsPlayer)
+        {
+            try { return dealer.Player?.Character?.Title.GetFormattedText() ?? "Self"; }
+            catch { return "Self"; }
         }
         return "Other";
     }
@@ -575,6 +643,10 @@ public static class PatchDamageDealer
     {
         StatsTrackerData.CurrentDealer = dealer;
         StatsTrackerData.CurrentCardSource = cardSource;
+        // Snapshot the side-channel source (set by potion/relic/orb prefixes)
+        // before it can be cleared by an async postfix firing at the first yield.
+        StatsTrackerData.PendingDamageSource = StatsTrackerData.CurrentDamageSource;
+        StatsTrackerData.CurrentDamageSource = null;
     }
 }
 
