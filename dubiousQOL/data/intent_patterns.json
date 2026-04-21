@@ -166,35 +166,35 @@
     },
     "CEREMONIAL_BEAST": {
       "moves": [
-        { "stateId": "STAMP_MOVE", "name": "Stamp", "effect": "Gains {PLOW}." },
-        { "stateId": "PLOW_MOVE", "name": "Plow", "effect": "Deals [color=#FF6666]{damage}[/color] damage. Gains 2 {STRENGTH}." },
-        { "stateId": "STUN_MOVE", "name": "Stunned", "effect": "Does nothing. Stunned." },
-        { "stateId": "BEAST_CRY_MOVE", "name": "Beast Cry", "effect": "Applies 1 {RINGING}." },
-        { "stateId": "STOMP_MOVE", "name": "Stomp", "effect": "Deals [color=#FF6666]{damage}[/color] damage." },
-        { "stateId": "CRUSH_MOVE", "name": "Crush", "effect": "Deals [color=#FF6666]{damage}[/color] damage. Gains 3 {STRENGTH}." }
+        { "stateId": "STAMP_MOVE", "name": "Stamp", "effect": "Gains {PLOW}.", "intents": ["buff"] },
+        { "stateId": "PLOW_MOVE", "name": "Plow", "effect": "Deals [color=#FF6666]{damage}[/color] damage. Gains 2 {STRENGTH}.", "baseDamage": 18, "a2Damage": 20, "intents": ["attack", "buff"] },
+        { "stateId": "STUN_MOVE", "name": "Stunned", "effect": "Does nothing. Stunned.", "intents": ["stun"] },
+        { "stateId": "BEAST_CRY_MOVE", "name": "Beast Cry", "effect": "Applies 1 {RINGING}.", "intents": ["debuff"] },
+        { "stateId": "STOMP_MOVE", "name": "Stomp", "effect": "Deals [color=#FF6666]{damage}[/color] damage.", "baseDamage": 15, "a2Damage": 17, "intents": ["attack"] },
+        { "stateId": "CRUSH_MOVE", "name": "Crush", "effect": "Deals [color=#FF6666]{damage}[/color] damage. Gains 3 {STRENGTH}.", "baseDamage": 17, "a2Damage": 19, "intents": ["attack", "buff"] }
       ]
     },
     "KIN_PRIEST": {
       "moves": [
-        { "stateId": "ORB_OF_FRAILTY_MOVE", "name": "Orb of Frailty", "effect": "Deals [color=#FF6666]{damage}[/color] damage. Applies 1 {FRAIL}." },
-        { "stateId": "ORB_OF_WEAKNESS_MOVE", "name": "Orb of Weakness", "effect": "Deals [color=#FF6666]{damage}[/color] damage. Applies 1 {WEAK}." },
-        { "stateId": "BEAM_MOVE", "name": "Soul Beam", "effect": "Deals [color=#FF6666]{damage}[/color] damage[color=#FF6666]{hits_suffix}[/color]." },
-        { "stateId": "RITUAL_MOVE", "name": "Dark Ritual", "effect": "Gains 2 {STRENGTH}." }
+        { "stateId": "ORB_OF_FRAILTY_MOVE", "name": "Orb of Frailty", "effect": "Deals [color=#FF6666]{damage}[/color] damage. Applies 1 {FRAIL}.", "baseDamage": 8, "a2Damage": 9, "intents": ["attack", "debuff"] },
+        { "stateId": "ORB_OF_WEAKNESS_MOVE", "name": "Orb of Weakness", "effect": "Deals [color=#FF6666]{damage}[/color] damage. Applies 1 {WEAK}.", "baseDamage": 8, "a2Damage": 9, "intents": ["attack", "debuff"] },
+        { "stateId": "BEAM_MOVE", "name": "Soul Beam", "effect": "Deals [color=#FF6666]{damage}[/color] damage[color=#FF6666]{hits_suffix}[/color].", "baseDamage": 3, "a2Damage": 3, "hits": 3, "intents": ["attack"] },
+        { "stateId": "RITUAL_MOVE", "name": "Dark Ritual", "effect": "Gains 2 {STRENGTH}.", "intents": ["buff"] }
       ]
     },
     "KIN_FOLLOWER": {
       "moves": [
-        { "stateId": "QUICK_SLASH_MOVE", "name": "Quick Slash", "effect": "Deals [color=#FF6666]{damage}[/color] damage." },
-        { "stateId": "BOOMERANG_MOVE", "name": "Boomerang", "effect": "Deals [color=#FF6666]{damage}[/color] damage[color=#FF6666]{hits_suffix}[/color]." },
-        { "stateId": "POWER_DANCE_MOVE", "name": "Power Dance", "effect": "Gains 2 {STRENGTH}." }
+        { "stateId": "QUICK_SLASH_MOVE", "name": "Quick Slash", "effect": "Deals [color=#FF6666]{damage}[/color] damage.", "baseDamage": 5, "a2Damage": 5, "intents": ["attack"] },
+        { "stateId": "BOOMERANG_MOVE", "name": "Boomerang", "effect": "Deals [color=#FF6666]{damage}[/color] damage[color=#FF6666]{hits_suffix}[/color].", "baseDamage": 2, "a2Damage": 2, "hits": 2, "intents": ["attack"] },
+        { "stateId": "POWER_DANCE_MOVE", "name": "Power Dance", "effect": "Gains 2 {STRENGTH}.", "intents": ["buff"] }
       ]
     },
     "VANTOM": {
       "moves": [
-        { "stateId": "INK_BLOT_MOVE", "name": "Ink Blot", "effect": "Deals [color=#FF6666]{damage}[/color] damage." },
-        { "stateId": "INKY_LANCE_MOVE", "name": "Inky Lance", "effect": "Deals [color=#FF6666]{damage}[/color] damage[color=#FF6666]{hits_suffix}[/color]." },
-        { "stateId": "DISMEMBER_MOVE", "name": "Dismember", "effect": "Deals [color=#FF6666]{damage}[/color] damage. Shuffles 3 Wounds into your discard pile." },
-        { "stateId": "PREPARE_MOVE", "name": "Prepare", "effect": "Gains 2 {STRENGTH}." }
+        { "stateId": "INK_BLOT_MOVE", "name": "Ink Blot", "effect": "Deals [color=#FF6666]{damage}[/color] damage.", "baseDamage": 7, "a2Damage": 8, "intents": ["attack"] },
+        { "stateId": "INKY_LANCE_MOVE", "name": "Inky Lance", "effect": "Deals [color=#FF6666]{damage}[/color] damage[color=#FF6666]{hits_suffix}[/color].", "baseDamage": 6, "a2Damage": 7, "hits": 2, "intents": ["attack"] },
+        { "stateId": "DISMEMBER_MOVE", "name": "Dismember", "effect": "Deals [color=#FF6666]{damage}[/color] damage. Shuffles 3 Wounds into your discard pile.", "baseDamage": 27, "a2Damage": 30, "intents": ["attack", "status_card"] },
+        { "stateId": "PREPARE_MOVE", "name": "Prepare", "effect": "Gains 2 {STRENGTH}.", "intents": ["buff"] }
       ]
     },
 
@@ -324,32 +324,32 @@
     },
     "WATERFALL_GIANT": {
       "moves": [
-        { "stateId": "PRESSURIZE_MOVE", "name": "Pressurize", "effect": "Gains {STEAM_ERUPTION}." },
-        { "stateId": "STOMP_MOVE", "name": "Stomp", "effect": "Deals [color=#FF6666]{damage}[/color] damage. Applies 1 {WEAK}. Gains 3 {STEAM_ERUPTION}." },
-        { "stateId": "RAM_MOVE", "name": "Ram", "effect": "Deals [color=#FF6666]{damage}[/color] damage. Gains 3 {STEAM_ERUPTION}." },
-        { "stateId": "SIPHON_MOVE", "name": "Siphon", "effect": "Heals [color=#90EE90]15[/color] HP per player. Gains 3 {STEAM_ERUPTION}." },
-        { "stateId": "PRESSURE_GUN_MOVE", "name": "Pressure Gun", "effect": "Deals [color=#FF6666]{damage}[/color] damage. Gains 3 {STEAM_ERUPTION}. Damage increases by 5 each use." },
-        { "stateId": "PRESSURE_UP_MOVE", "name": "Pressure Up", "effect": "Deals [color=#FF6666]{damage}[/color] damage. Gains 3 {STEAM_ERUPTION}." },
-        { "stateId": "ABOUT_TO_BLOW_MOVE", "name": "About To Blow", "effect": "Becomes invulnerable. Prepares to explode." },
-        { "stateId": "EXPLODE_MOVE", "name": "Explode", "effect": "Deals [color=#FF6666]{damage}[/color] damage. Dies." }
+        { "stateId": "PRESSURIZE_MOVE", "name": "Pressurize", "effect": "Gains {STEAM_ERUPTION}.", "intents": ["buff"] },
+        { "stateId": "STOMP_MOVE", "name": "Stomp", "effect": "Deals [color=#FF6666]{damage}[/color] damage. Applies 1 {WEAK}. Gains 3 {STEAM_ERUPTION}.", "baseDamage": 15, "a2Damage": 16, "intents": ["attack", "debuff", "buff"] },
+        { "stateId": "RAM_MOVE", "name": "Ram", "effect": "Deals [color=#FF6666]{damage}[/color] damage. Gains 3 {STEAM_ERUPTION}.", "baseDamage": 10, "a2Damage": 11, "intents": ["attack", "buff"] },
+        { "stateId": "SIPHON_MOVE", "name": "Siphon", "effect": "Heals [color=#90EE90]15[/color] HP per player. Gains 3 {STEAM_ERUPTION}.", "intents": ["heal", "buff"] },
+        { "stateId": "PRESSURE_GUN_MOVE", "name": "Pressure Gun", "effect": "Deals [color=#FF6666]{damage}[/color] damage. Gains 3 {STEAM_ERUPTION}. Damage increases by 5 each use.", "baseDamage": 20, "a2Damage": 23, "intents": ["attack", "buff"] },
+        { "stateId": "PRESSURE_UP_MOVE", "name": "Pressure Up", "effect": "Deals [color=#FF6666]{damage}[/color] damage. Gains 3 {STEAM_ERUPTION}.", "baseDamage": 13, "a2Damage": 14, "intents": ["attack", "buff"] },
+        { "stateId": "ABOUT_TO_BLOW_MOVE", "name": "About To Blow", "effect": "Becomes invulnerable. Prepares to explode.", "intents": ["stun"] },
+        { "stateId": "EXPLODE_MOVE", "name": "Explode", "effect": "Deals massive [color=#FF6666]{STEAM_ERUPTION}[/color] damage. Dies.", "intents": ["attack"] }
       ]
     },
     "SOUL_FYSH": {
       "moves": [
-        { "stateId": "BECKON_MOVE", "name": "Beckon", "effect": "Shuffles 2 [color=#CC6666]Beckons[/color] into your deck." },
-        { "stateId": "DE_GAS_MOVE", "name": "De-Gas", "effect": "Deals [color=#FF6666]{damage}[/color] damage." },
-        { "stateId": "GAZE_MOVE", "name": "Gaze", "effect": "Deals [color=#FF6666]{damage}[/color] damage. Shuffles 1 [color=#CC6666]Beckon[/color] into discard pile." },
-        { "stateId": "FADE_MOVE", "name": "Fade", "effect": "Gains 2 {INTANGIBLE}." },
-        { "stateId": "SCREAM_MOVE", "name": "Scream", "effect": "Deals [color=#FF6666]{damage}[/color] damage. Applies 3 {VULNERABLE}." }
+        { "stateId": "BECKON_MOVE", "name": "Beckon", "effect": "Shuffles 2 [color=#CC6666]Beckons[/color] into your deck.", "intents": ["status_card"] },
+        { "stateId": "DE_GAS_MOVE", "name": "De-Gas", "effect": "Deals [color=#FF6666]{damage}[/color] damage.", "baseDamage": 16, "a2Damage": 17, "intents": ["attack"] },
+        { "stateId": "GAZE_MOVE", "name": "Gaze", "effect": "Deals [color=#FF6666]{damage}[/color] damage. Shuffles 1 [color=#CC6666]Beckon[/color] into discard pile.", "baseDamage": 7, "a2Damage": 8, "intents": ["attack", "status_card"] },
+        { "stateId": "FADE_MOVE", "name": "Fade", "effect": "Gains 2 {INTANGIBLE}.", "intents": ["buff"] },
+        { "stateId": "SCREAM_MOVE", "name": "Scream", "effect": "Deals [color=#FF6666]{damage}[/color] damage. Applies 3 {VULNERABLE}.", "baseDamage": 11, "a2Damage": 12, "intents": ["attack", "debuff"] }
       ]
     },
     "LAGAVULIN_MATRIARCH": {
       "moves": [
-        { "stateId": "SLEEP_MOVE", "name": "Sleep", "effect": "Asleep." },
-        { "stateId": "SLASH_MOVE", "name": "Slash", "effect": "Deals [color=#FF6666]{damage}[/color] damage." },
-        { "stateId": "DISEMBOWEL_MOVE", "name": "Disembowel", "effect": "Deals [color=#FF6666]{damage}[/color] damage[color=#FF6666]{hits_suffix}[/color]." },
-        { "stateId": "SLASH2_MOVE", "name": "Slash", "effect": "Deals [color=#FF6666]{damage}[/color] damage. Gains {BLOCK}." },
-        { "stateId": "SOUL_SIPHON_MOVE", "name": "Soul Siphon", "effect": "Removes 2 {STRENGTH} and 2 {DEXTERITY} from you. Gains 2 {STRENGTH}." }
+        { "stateId": "SLEEP_MOVE", "name": "Sleep", "effect": "Asleep.", "intents": ["sleep"] },
+        { "stateId": "SLASH_MOVE", "name": "Slash", "effect": "Deals [color=#FF6666]{damage}[/color] damage.", "baseDamage": 19, "a2Damage": 21, "intents": ["attack"] },
+        { "stateId": "DISEMBOWEL_MOVE", "name": "Disembowel", "effect": "Deals [color=#FF6666]{damage}[/color] damage[color=#FF6666]{hits_suffix}[/color].", "baseDamage": 9, "a2Damage": 10, "hits": 2, "intents": ["attack"] },
+        { "stateId": "SLASH2_MOVE", "name": "Slash", "effect": "Deals [color=#FF6666]{damage}[/color] damage. Gains {BLOCK}.", "baseDamage": 12, "a2Damage": 14, "intents": ["attack", "defend"] },
+        { "stateId": "SOUL_SIPHON_MOVE", "name": "Soul Siphon", "effect": "Removes 2 {STRENGTH} and 2 {DEXTERITY} from you. Gains 2 {STRENGTH}.", "intents": ["debuff", "buff"] }
       ]
     },
 
@@ -509,37 +509,37 @@
     },
     "THE_INSATIABLE": {
       "moves": [
-        { "stateId": "LIQUIFY_GROUND_MOVE", "name": "Liquify Ground", "effect": "Applies 4 Sandpit to each player. Shuffles 6 Frantic Escape into each player's deck." },
-        { "stateId": "THRASH_MOVE_1", "name": "Thrash", "effect": "Deals [color=#FF6666]{damage}[/color] damage[color=#FF6666]{hits_suffix}[/color]." },
-        { "stateId": "LUNGING_BITE_MOVE", "name": "Lunging Bite", "effect": "Deals [color=#FF6666]{damage}[/color] damage." },
-        { "stateId": "SALIVATE_MOVE", "name": "Salivate", "effect": "Gains 2 {STRENGTH}." },
-        { "stateId": "THRASH_MOVE_2", "name": "Thrash", "effect": "Deals [color=#FF6666]{damage}[/color] damage[color=#FF6666]{hits_suffix}[/color]." }
+        { "stateId": "LIQUIFY_GROUND_MOVE", "name": "Liquify Ground", "effect": "Applies 4 Sandpit to each player. Shuffles 6 Frantic Escape into each player's deck.", "intents": ["buff", "status_card"] },
+        { "stateId": "THRASH_MOVE_1", "name": "Thrash", "effect": "Deals [color=#FF6666]{damage}[/color] damage[color=#FF6666]{hits_suffix}[/color].", "baseDamage": 8, "a2Damage": 9, "hits": 2, "intents": ["attack"] },
+        { "stateId": "LUNGING_BITE_MOVE", "name": "Lunging Bite", "effect": "Deals [color=#FF6666]{damage}[/color] damage.", "baseDamage": 28, "a2Damage": 31, "intents": ["attack"] },
+        { "stateId": "SALIVATE_MOVE", "name": "Salivate", "effect": "Gains 2 {STRENGTH}.", "intents": ["buff"] },
+        { "stateId": "THRASH_MOVE_2", "name": "Thrash", "effect": "Deals [color=#FF6666]{damage}[/color] damage[color=#FF6666]{hits_suffix}[/color].", "baseDamage": 8, "a2Damage": 9, "hits": 2, "intents": ["attack"] }
       ]
     },
     "KNOWLEDGE_DEMON": {
       "moves": [
-        { "stateId": "CURSE_OF_KNOWLEDGE_MOVE", "name": "Curse of Knowledge", "effect": "Each player chooses one of two curse cards to receive." },
-        { "stateId": "SLAP_MOVE", "name": "Slap", "effect": "Deals [color=#FF6666]{damage}[/color] damage." },
-        { "stateId": "KNOWLEDGE_OVERWHELMING_MOVE", "name": "Knowledge Overwhelming", "effect": "Deals [color=#FF6666]{damage}[/color] damage[color=#FF6666]{hits_suffix}[/color]." },
-        { "stateId": "PONDER_MOVE", "name": "Ponder", "effect": "Deals [color=#FF6666]{damage}[/color] damage. Heals 30 HP per player. Gains 2 {STRENGTH}." }
+        { "stateId": "CURSE_OF_KNOWLEDGE_MOVE", "name": "Curse of Knowledge", "effect": "Each player chooses one of two curse cards to receive.", "intents": ["debuff"] },
+        { "stateId": "SLAP_MOVE", "name": "Slap", "effect": "Deals [color=#FF6666]{damage}[/color] damage.", "baseDamage": 17, "a2Damage": 18, "intents": ["attack"] },
+        { "stateId": "KNOWLEDGE_OVERWHELMING_MOVE", "name": "Knowledge Overwhelming", "effect": "Deals [color=#FF6666]{damage}[/color] damage[color=#FF6666]{hits_suffix}[/color].", "baseDamage": 8, "a2Damage": 9, "hits": 3, "intents": ["attack"] },
+        { "stateId": "PONDER_MOVE", "name": "Ponder", "effect": "Deals [color=#FF6666]{damage}[/color] damage. Heals 30 HP per player. Gains 2 {STRENGTH}.", "baseDamage": 11, "a2Damage": 13, "intents": ["attack", "heal", "buff"] }
       ]
     },
     "CRUSHER": {
       "moves": [
-        { "stateId": "THRASH_MOVE", "name": "Thrash", "effect": "Deals [color=#FF6666]{damage}[/color] damage." },
-        { "stateId": "ENLARGING_STRIKE_MOVE", "name": "Enlarging Strike", "effect": "Deals [color=#FF6666]{damage}[/color] damage." },
-        { "stateId": "BUG_STING_MOVE", "name": "Bug Sting", "effect": "Deals [color=#FF6666]{damage}[/color] damage[color=#FF6666]{hits_suffix}[/color]. Applies 2 {WEAK} and 2 {FRAIL}." },
-        { "stateId": "ADAPT_MOVE", "name": "Adapt", "effect": "Gains 2 {STRENGTH}." },
-        { "stateId": "GUARDED_STRIKE_MOVE", "name": "Guarded Strike", "effect": "Deals [color=#FF6666]{damage}[/color] damage. Gains 18 {BLOCK}." }
+        { "stateId": "THRASH_MOVE", "name": "Thrash", "effect": "Deals [color=#FF6666]{damage}[/color] damage.", "baseDamage": 12, "a2Damage": 14, "intents": ["attack"] },
+        { "stateId": "ENLARGING_STRIKE_MOVE", "name": "Enlarging Strike", "effect": "Deals [color=#FF6666]{damage}[/color] damage.", "baseDamage": 4, "a2Damage": 4, "intents": ["attack"] },
+        { "stateId": "BUG_STING_MOVE", "name": "Bug Sting", "effect": "Deals [color=#FF6666]{damage}[/color] damage[color=#FF6666]{hits_suffix}[/color]. Applies 2 {WEAK} and 2 {FRAIL}.", "baseDamage": 6, "a2Damage": 7, "hits": 2, "intents": ["attack", "debuff"] },
+        { "stateId": "ADAPT_MOVE", "name": "Adapt", "effect": "Gains 2 {STRENGTH}.", "intents": ["buff"] },
+        { "stateId": "GUARDED_STRIKE_MOVE", "name": "Guarded Strike", "effect": "Deals [color=#FF6666]{damage}[/color] damage. Gains 18 {BLOCK}.", "baseDamage": 12, "a2Damage": 14, "intents": ["attack", "defend"] }
       ]
     },
     "ROCKET": {
       "moves": [
-        { "stateId": "TARGETING_RETICLE_MOVE", "name": "Targeting Reticle", "effect": "Deals [color=#FF6666]{damage}[/color] damage." },
-        { "stateId": "PRECISION_BEAM_MOVE", "name": "Precision Beam", "effect": "Deals [color=#FF6666]{damage}[/color] damage." },
-        { "stateId": "CHARGE_UP_MOVE", "name": "Charge Up", "effect": "Gains 2 {STRENGTH}." },
-        { "stateId": "LASER_MOVE", "name": "Laser", "effect": "Deals [color=#FF6666]{damage}[/color] damage." },
-        { "stateId": "RECHARGE_MOVE", "name": "Recharge", "effect": "Does nothing." }
+        { "stateId": "TARGETING_RETICLE_MOVE", "name": "Targeting Reticle", "effect": "Deals [color=#FF6666]{damage}[/color] damage.", "baseDamage": 3, "a2Damage": 4, "intents": ["attack"] },
+        { "stateId": "PRECISION_BEAM_MOVE", "name": "Precision Beam", "effect": "Deals [color=#FF6666]{damage}[/color] damage.", "baseDamage": 18, "a2Damage": 20, "intents": ["attack"] },
+        { "stateId": "CHARGE_UP_MOVE", "name": "Charge Up", "effect": "Gains 2 {STRENGTH}.", "intents": ["buff"] },
+        { "stateId": "LASER_MOVE", "name": "Laser", "effect": "Deals [color=#FF6666]{damage}[/color] damage.", "baseDamage": 31, "a2Damage": 35, "intents": ["attack"] },
+        { "stateId": "RECHARGE_MOVE", "name": "Recharge", "effect": "Does nothing.", "intents": ["sleep"] }
       ]
     },
 
@@ -687,47 +687,47 @@
     },
     "QUEEN": {
       "moves": [
-        { "stateId": "PUPPET_STRINGS_MOVE", "name": "Puppet Strings", "effect": "Applies 3 {CHAINS_OF_BINDING}." },
-        { "stateId": "YOUR_MINE_MOVE", "name": "You're Mine", "effect": "Applies 99 {FRAIL}, 99 {WEAK}, and 99 {VULNERABLE}." },
-        { "stateId": "BURN_BRIGHT_FOR_ME_MOVE", "name": "Burn Bright for Me", "effect": "Gives allies 1 {STRENGTH}. Gains 20 {BLOCK}." },
-        { "stateId": "OFF_WITH_YOUR_HEAD_MOVE", "name": "Off with Your Head", "effect": "Deals [color=#FF6666]{damage}[/color] damage[color=#FF6666]{hits_suffix}[/color]." },
-        { "stateId": "EXECUTION_MOVE", "name": "Execution", "effect": "Deals [color=#FF6666]{damage}[/color] damage." },
-        { "stateId": "ENRAGE_MOVE", "name": "Enrage", "effect": "Gains 2 {STRENGTH}." }
+        { "stateId": "PUPPET_STRINGS_MOVE", "name": "Puppet Strings", "effect": "Applies 3 {CHAINS_OF_BINDING}.", "intents": ["card_debuff"] },
+        { "stateId": "YOUR_MINE_MOVE", "name": "You're Mine", "effect": "Applies 99 {FRAIL}, 99 {WEAK}, and 99 {VULNERABLE}.", "intents": ["debuff"] },
+        { "stateId": "BURN_BRIGHT_FOR_ME_MOVE", "name": "Burn Bright for Me", "effect": "Gives allies 1 {STRENGTH}. Gains 20 {BLOCK}.", "intents": ["buff", "defend"] },
+        { "stateId": "OFF_WITH_YOUR_HEAD_MOVE", "name": "Off with Your Head", "effect": "Deals [color=#FF6666]{damage}[/color] damage[color=#FF6666]{hits_suffix}[/color].", "baseDamage": 3, "a2Damage": 4, "hits": 5, "intents": ["attack"] },
+        { "stateId": "EXECUTION_MOVE", "name": "Execution", "effect": "Deals [color=#FF6666]{damage}[/color] damage.", "baseDamage": 15, "a2Damage": 18, "intents": ["attack"] },
+        { "stateId": "ENRAGE_MOVE", "name": "Enrage", "effect": "Gains 2 {STRENGTH}.", "intents": ["buff"] }
       ]
     },
     "TORCH_HEAD_AMALGAM": {
       "moves": [
-        { "stateId": "TACKLE_1_MOVE", "name": "Tackle", "effect": "Deals [color=#FF6666]{damage}[/color] damage." },
-        { "stateId": "TACKLE_2_MOVE", "name": "Tackle", "effect": "Deals [color=#FF6666]{damage}[/color] damage." },
-        { "stateId": "BEAM_MOVE", "name": "Soul Beam", "effect": "Deals [color=#FF6666]{damage}[/color] damage[color=#FF6666]{hits_suffix}[/color]." },
-        { "stateId": "TACKLE_3_MOVE", "name": "Weak Tackle", "effect": "Deals [color=#FF6666]{damage}[/color] damage." },
-        { "stateId": "TACKLE_4_MOVE", "name": "Weak Tackle", "effect": "Deals [color=#FF6666]{damage}[/color] damage." }
+        { "stateId": "TACKLE_1_MOVE", "name": "Tackle", "effect": "Deals [color=#FF6666]{damage}[/color] damage.", "baseDamage": 18, "a2Damage": 19, "intents": ["attack"] },
+        { "stateId": "TACKLE_2_MOVE", "name": "Tackle", "effect": "Deals [color=#FF6666]{damage}[/color] damage.", "baseDamage": 18, "a2Damage": 19, "intents": ["attack"] },
+        { "stateId": "BEAM_MOVE", "name": "Soul Beam", "effect": "Deals [color=#FF6666]{damage}[/color] damage[color=#FF6666]{hits_suffix}[/color].", "baseDamage": 8, "a2Damage": 8, "hits": 3, "intents": ["attack"] },
+        { "stateId": "TACKLE_3_MOVE", "name": "Weak Tackle", "effect": "Deals [color=#FF6666]{damage}[/color] damage.", "baseDamage": 14, "a2Damage": 15, "intents": ["attack"] },
+        { "stateId": "TACKLE_4_MOVE", "name": "Weak Tackle", "effect": "Deals [color=#FF6666]{damage}[/color] damage.", "baseDamage": 14, "a2Damage": 15, "intents": ["attack"] }
       ]
     },
     "TEST_SUBJECT": {
       "moves": [
-        { "stateId": "BITE_MOVE", "name": "Bite", "effect": "Deals [color=#FF6666]{damage}[/color] damage." },
-        { "stateId": "SKULL_BASH_MOVE", "name": "Skull Bash", "effect": "Deals [color=#FF6666]{damage}[/color] damage. Applies 1 {VULNERABLE}." },
-        { "stateId": "RESPAWN_MOVE", "name": "Respawn", "effect": "Revives with increased HP and new powers." },
-        { "stateId": "POUNCE_MOVE", "name": "Pounce", "effect": "Deals [color=#FF6666]{damage}[/color] damage." },
-        { "stateId": "MULTI_CLAW_MOVE", "name": "Multi-Claw", "effect": "Deals [color=#FF6666]{damage}[/color] damage[color=#FF6666]{hits_suffix}[/color]. Hit count increases by 1 each use." },
-        { "stateId": "PHASE3_LACERATE_MOVE", "name": "Lacerate", "effect": "Deals [color=#FF6666]{damage}[/color] damage[color=#FF6666]{hits_suffix}[/color]." },
-        { "stateId": "BIG_POUNCE_MOVE", "name": "Big Pounce", "effect": "Deals [color=#FF6666]{damage}[/color] damage." },
-        { "stateId": "BURNING_GROWL_MOVE", "name": "Burning Growl", "effect": "Shuffles 3 Burns into the discard pile. Gains 2 {STRENGTH}." }
+        { "stateId": "BITE_MOVE", "name": "Bite", "effect": "Deals [color=#FF6666]{damage}[/color] damage.", "baseDamage": 20, "a2Damage": 22, "intents": ["attack"] },
+        { "stateId": "SKULL_BASH_MOVE", "name": "Skull Bash", "effect": "Deals [color=#FF6666]{damage}[/color] damage. Applies 1 {VULNERABLE}.", "baseDamage": 14, "a2Damage": 16, "intents": ["attack", "debuff"] },
+        { "stateId": "RESPAWN_MOVE", "name": "Respawn", "effect": "Revives with increased HP and new powers.", "intents": ["heal", "buff"] },
+        { "stateId": "POUNCE_MOVE", "name": "Pounce", "effect": "Deals [color=#FF6666]{damage}[/color] damage.", "baseDamage": 30, "a2Damage": 32, "intents": ["attack"] },
+        { "stateId": "MULTI_CLAW_MOVE", "name": "Multi-Claw", "effect": "Deals [color=#FF6666]{damage}[/color] damage[color=#FF6666]{hits_suffix}[/color]. Hit count increases by 1 each use.", "baseDamage": 10, "a2Damage": 11, "hits": 3, "intents": ["attack"] },
+        { "stateId": "PHASE3_LACERATE_MOVE", "name": "Lacerate", "effect": "Deals [color=#FF6666]{damage}[/color] damage[color=#FF6666]{hits_suffix}[/color].", "baseDamage": 10, "a2Damage": 11, "hits": 3, "intents": ["attack"] },
+        { "stateId": "BIG_POUNCE_MOVE", "name": "Big Pounce", "effect": "Deals [color=#FF6666]{damage}[/color] damage.", "baseDamage": 45, "a2Damage": 45, "intents": ["attack"] },
+        { "stateId": "BURNING_GROWL_MOVE", "name": "Burning Growl", "effect": "Shuffles 3 Burns into the discard pile. Gains 2 {STRENGTH}.", "intents": ["status_card", "buff"] }
       ]
     },
     "DOORMAKER": {
       "moves": [
-        { "stateId": "WHAT_IS_IT_MOVE", "name": "What Is It?", "effect": "Does nothing." },
-        { "stateId": "BEAM_MOVE", "name": "Laser Beam", "effect": "Deals [color=#FF6666]{damage}[/color] damage." },
-        { "stateId": "GET_BACK_IN_MOVE", "name": "Get Back In", "effect": "Deals [color=#FF6666]{damage}[/color] damage. Gains 5 {STRENGTH}. Revives the Door and escapes." }
+        { "stateId": "WHAT_IS_IT_MOVE", "name": "What Is It?", "effect": "Does nothing.", "intents": ["stun"] },
+        { "stateId": "BEAM_MOVE", "name": "Laser Beam", "effect": "Deals [color=#FF6666]{damage}[/color] damage.", "baseDamage": 31, "a2Damage": 34, "intents": ["attack"] },
+        { "stateId": "GET_BACK_IN_MOVE", "name": "Get Back In", "effect": "Deals [color=#FF6666]{damage}[/color] damage. Gains 5 {STRENGTH}. Revives the Door and escapes.", "baseDamage": 40, "a2Damage": 45, "intents": ["attack", "buff", "escape"] }
       ]
     },
     "DOOR": {
       "moves": [
-        { "stateId": "DRAMATIC_OPEN_MOVE", "name": "Dramatic Open", "effect": "Deals [color=#FF6666]{damage}[/color] damage." },
-        { "stateId": "DOOR_SLAM_MOVE", "name": "Door Slam", "effect": "Deals [color=#FF6666]{damage}[/color] damage[color=#FF6666]{hits_suffix}[/color]." },
-        { "stateId": "ENFORCE_MOVE", "name": "Enforce", "effect": "Deals [color=#FF6666]{damage}[/color] damage. Gains 3 {STRENGTH}." }
+        { "stateId": "DRAMATIC_OPEN_MOVE", "name": "Dramatic Open", "effect": "Deals [color=#FF6666]{damage}[/color] damage.", "baseDamage": 25, "a2Damage": 28, "intents": ["attack"] },
+        { "stateId": "DOOR_SLAM_MOVE", "name": "Door Slam", "effect": "Deals [color=#FF6666]{damage}[/color] damage[color=#FF6666]{hits_suffix}[/color].", "baseDamage": 15, "a2Damage": 15, "hits": 2, "intents": ["attack"] },
+        { "stateId": "ENFORCE_MOVE", "name": "Enforce", "effect": "Deals [color=#FF6666]{damage}[/color] damage. Gains 3 {STRENGTH}.", "baseDamage": 20, "a2Damage": 20, "intents": ["attack", "buff"] }
       ]
     }
   }

@@ -4,8 +4,11 @@ using System.Linq;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Godot;
+using MegaCrit.Sts2.Core.Assets;
 using MegaCrit.Sts2.Core.Combat;
+using MegaCrit.Sts2.Core.Entities.Ascension;
 using MegaCrit.Sts2.Core.Entities.Creatures;
+using MegaCrit.Sts2.Core.Helpers;
 using MegaCrit.Sts2.Core.MonsterMoves.Intents;
 using MegaCrit.Sts2.Core.MonsterMoves.MonsterMoveStateMachine;
 using MegaCrit.Sts2.Core.Nodes.Combat;
@@ -30,6 +33,10 @@ internal sealed class MoveData
     [JsonPropertyName("stateId")] public string StateId { get; set; } = "";
     [JsonPropertyName("name")] public string Name { get; set; } = "";
     [JsonPropertyName("effect")] public string Effect { get; set; } = "";
+    [JsonPropertyName("baseDamage")] public int? BaseDamage { get; set; }
+    [JsonPropertyName("a2Damage")] public int? A2Damage { get; set; }
+    [JsonPropertyName("hits")] public int? Hits { get; set; }
+    [JsonPropertyName("intents")] public List<string>? Intents { get; set; }
 }
 
 // --- Runtime-resolved model ---
@@ -45,6 +52,14 @@ internal sealed class IntentIcon
 {
     public Texture2D? Texture { get; set; }
     public string Label { get; set; } = "";
+}
+
+internal sealed class MonsterSection
+{
+    public string Name { get; set; } = "";
+    public string MonsterEntry { get; set; } = "";
+    public string? EncounterSlug { get; set; }
+    public List<ResolvedPattern> Patterns { get; set; } = new();
 }
 
 // --- Effect token definitions ---
@@ -83,6 +98,22 @@ internal static class IntentPatternsData
 {
     private const string DataPath = "res://dubiousQOL/data/intent_patterns.json";
     private const int TokenIconSize = 18;
+
+    private static readonly Dictionary<string, string> _intentSprites = new()
+    {
+        ["attack"]      = "atlases/intent_atlas.sprites/intent_attack.tres",
+        ["buff"]        = "atlases/intent_atlas.sprites/intent_buff.tres",
+        ["debuff"]      = "atlases/intent_atlas.sprites/intent_debuff.tres",
+        ["defend"]      = "atlases/intent_atlas.sprites/intent_defend.tres",
+        ["card_debuff"] = "atlases/intent_atlas.sprites/intent_card_debuff.tres",
+        ["status_card"] = "atlases/intent_atlas.sprites/intent_status_card.tres",
+        ["summon"]      = "atlases/intent_atlas.sprites/intent_summon.tres",
+        ["stun"]        = "atlases/intent_atlas.sprites/intent_stun.tres",
+        ["sleep"]       = "atlases/intent_atlas.sprites/intent_sleep.tres",
+        ["heal"]        = "atlases/intent_atlas.sprites/intent_heal.tres",
+        ["escape"]      = "atlases/intent_atlas.sprites/intent_escape.tres",
+        ["unknown"]     = "atlases/intent_atlas.sprites/intent_unknown.tres",
+    };
 
     private static readonly Dictionary<string, EffectToken> _tokens = new()
     {
@@ -274,6 +305,90 @@ internal static class IntentPatternsData
             .Replace("{hits_suffix}", hitsSuffix);
 
         return ExpandTokens(result);
+    }
+
+    public static bool HasEnrichment(string monsterEntry)
+        => _enrichment?.Creatures != null && _enrichment.Creatures.ContainsKey(monsterEntry);
+
+    /// <summary>
+    /// Resolves patterns from enrichment data only — no runtime intents or damage.
+    /// Used for the boss icon preview outside of combat.
+    /// Uses hardcoded baseDamage/a2Damage fallback values from JSON, picking the
+    /// correct one based on the current run's ascension level.
+    /// </summary>
+    public static List<ResolvedPattern> ResolveEnrichmentOnly(string monsterEntry)
+    {
+        if (_enrichment?.Creatures == null) return new();
+        if (!_enrichment.Creatures.TryGetValue(monsterEntry, out var enrichment)) return new();
+
+        bool isA2;
+        try { isA2 = AscensionHelper.HasAscension(AscensionLevel.DeadlyEnemies); }
+        catch { isA2 = false; }
+
+        var results = new List<ResolvedPattern>();
+        foreach (var moveData in enrichment.Moves)
+        {
+            int singleDamage = 0;
+            string damage;
+            if (moveData.BaseDamage.HasValue)
+            {
+                singleDamage = isA2 && moveData.A2Damage.HasValue ? moveData.A2Damage.Value : moveData.BaseDamage.Value;
+                damage = singleDamage.ToString();
+            }
+            else
+            {
+                damage = "?";
+            }
+
+            int hits = moveData.Hits ?? 1;
+            string hitsSuffix = hits > 1 ? $" x{hits}" : "";
+
+            var effect = moveData.Effect
+                .Replace("{damage}", damage)
+                .Replace("{hits}", hits.ToString())
+                .Replace("{hits_suffix}", hitsSuffix);
+
+            var intents = new List<IntentIcon>();
+            if (moveData.Intents != null)
+            {
+                int totalDamage = singleDamage * Math.Max(hits, 1);
+                foreach (var intentKey in moveData.Intents)
+                    intents.Add(LoadStaticIntentIcon(intentKey, totalDamage));
+            }
+
+            results.Add(new ResolvedPattern
+            {
+                Name = moveData.Name,
+                EffectBBCode = ExpandTokens(effect),
+                Intents = intents,
+            });
+        }
+        return results;
+    }
+
+    private static IntentIcon LoadStaticIntentIcon(string intentKey, int totalDamage)
+    {
+        string spritePath;
+        if (intentKey == "attack")
+        {
+            // Match the game's tiered attack icons based on total damage
+            string tier = totalDamage < 5 ? "1" : totalDamage < 10 ? "2" : totalDamage < 20 ? "3" : totalDamage >= 40 ? "5" : "4";
+            spritePath = $"atlases/intent_atlas.sprites/attack/intent_attack_{tier}.tres";
+        }
+        else if (!_intentSprites.TryGetValue(intentKey, out spritePath!))
+        {
+            spritePath = _intentSprites["unknown"];
+        }
+
+        Texture2D? texture = null;
+        try
+        {
+            string imagePath = ImageHelper.GetImagePath(spritePath);
+            texture = PreloadManager.Cache.GetTexture2D(imagePath);
+        }
+        catch { }
+
+        return new IntentIcon { Texture = texture, Label = intentKey };
     }
 
     private static string BuildFallbackEffect(MoveState moveState, Creature owner, Creature[] targets)
