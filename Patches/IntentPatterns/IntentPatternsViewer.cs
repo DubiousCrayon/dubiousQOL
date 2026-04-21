@@ -16,6 +16,7 @@ internal partial class IntentPatternsViewer : Control, IScreenContext
     private static Font? _kreonFont;
 
     private readonly string _creatureName;
+    private readonly string _monsterEntry;
     private readonly List<ResolvedPattern> _patterns;
 
     // Column widths
@@ -26,10 +27,12 @@ internal partial class IntentPatternsViewer : Control, IScreenContext
     private const int FontSizeEffect = 18;
     private const int FontSizeHeader = 16;
     private const float CardWidth = 560f;
+    private const int PortraitSize = 40;
 
-    public IntentPatternsViewer(string creatureName, List<ResolvedPattern> patterns)
+    public IntentPatternsViewer(string creatureName, List<ResolvedPattern> patterns, string monsterEntry)
     {
         _creatureName = creatureName;
+        _monsterEntry = monsterEntry;
         _patterns = patterns;
         Name = "DubiousIntentPatterns";
         MouseFilter = MouseFilterEnum.Stop;
@@ -72,7 +75,7 @@ internal partial class IntentPatternsViewer : Control, IScreenContext
         AddChild(backdrop);
 
         // Card panel positioned near the creature
-        var outerPanel = StyleHelper.CreateDarkPanel(ModTheme.PanelBgDark, cornerRadius: 12, marginH: 20f, marginV: 16f);
+        var outerPanel = StyleHelper.CreateDarkPanel(ModTheme.PanelBgDark, cornerRadius: 12, marginH: 12f, marginV: 12f);
         outerPanel.MouseFilter = MouseFilterEnum.Stop;
         PositionCard(outerPanel);
         AddChild(outerPanel);
@@ -81,9 +84,17 @@ internal partial class IntentPatternsViewer : Control, IScreenContext
         vbox.AddThemeConstantOverride("separation", 8);
         outerPanel.AddChild(vbox);
 
-        // Section header — creature name
+        // Section header — creature name + portrait in HBox
+        var headerBox = new HBoxContainer();
+        headerBox.AddThemeConstantOverride("separation", 16);
         var header = StyleHelper.CreateSectionHeader(_creatureName, ModTheme.SectionHeader, fontSize: 26, outlineSize: 5);
-        vbox.AddChild(header);
+        header.AutoSizeEnabled = false;
+        header.AddThemeFontSizeOverride("font_size", 26);
+        header.CustomMinimumSize = new Vector2(0, 0);
+        header.SizeFlagsVertical = SizeFlags.ShrinkCenter;
+        headerBox.AddChild(header);
+        AddCreaturePortrait(headerBox);
+        vbox.AddChild(headerBox);
 
         // Column headers row
         vbox.AddChild(BuildColumnHeaders());
@@ -100,10 +111,48 @@ internal partial class IntentPatternsViewer : Control, IScreenContext
 
     private void PositionCard(PanelContainer panel)
     {
-        float maxH = 300f;
         panel.Position = new Vector2(520f, 100f);
-        panel.Size = new Vector2(CardWidth, maxH);
         panel.CustomMinimumSize = new Vector2(CardWidth, 0);
+    }
+
+    private void AddCreaturePortrait(HBoxContainer container)
+    {
+        if (string.IsNullOrEmpty(_monsterEntry)) return;
+
+        try
+        {
+            string entry = _monsterEntry.ToLowerInvariant();
+            string visualsPath = $"res://scenes/creature_visuals/{entry}.tscn";
+            var scene = ResourceLoader.Load<PackedScene>(visualsPath);
+            if (scene == null) return;
+
+            var viewport = new SubViewport
+            {
+                Size = new Vector2I(PortraitSize * 2, PortraitSize * 2),
+                TransparentBg = true,
+                RenderTargetUpdateMode = SubViewport.UpdateMode.Once,
+            };
+
+            var visuals = scene.Instantiate<Node2D>();
+            visuals.Position = new Vector2(PortraitSize, PortraitSize * 1.7f);
+            visuals.Scale = new Vector2(0.4f, 0.4f);
+            viewport.AddChild(visuals);
+            AddChild(viewport);
+
+            var texRect = new TextureRect
+            {
+                Texture = viewport.GetTexture(),
+                CustomMinimumSize = new Vector2(PortraitSize, PortraitSize),
+                ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize,
+                StretchMode = TextureRect.StretchModeEnum.KeepAspectCentered,
+                MouseFilter = MouseFilterEnum.Ignore,
+            };
+            container.AddChild(texRect);
+        }
+        catch (Exception e)
+        {
+            MainFile.Logger.Warn($"IntentPatterns portrait: {e.Message}");
+        }
     }
 
     private Control BuildColumnHeaders()

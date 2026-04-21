@@ -22,11 +22,7 @@ Every feature lives in `Patches/<Name>/`, early-returns on its config flag, and 
 
 ## Build + deploy
 
-The only tool you need is `mcp__sts2-modding__build_mod` with `project_dir="C:\Users\aaa7v\dev\mods\sts2\dubiousQOL"`. It compiles and auto-copies the `.dll` into `C:\Program Files (x86)\Steam\steamapps\common\Slay the Spire 2\mods\`.
-
-**File-lock caveat:** if the game is running, the copy step fails with MSB3027 ("file is used by SlayTheSpire2.exe") after 10 retries. The compile still succeeded — the user just needs to close the game, or use hot-reload. Do not treat this as a code error.
-
-**Hot-reload:** `mcp__sts2-modding__bridge_hot_reload` with `tier=1` (patches only) or `tier=2` (+ entities) if the game is running with the MCPTest bridge loaded. `hot_reload_project` has a broken async import, avoid it.
+**Do NOT run `build_mod` or `bridge_hot_reload` yourself.** The user handles all builds and deploys manually. Just make the code changes and let the user know when they're ready to test.
 
 ## Game source lookups
 

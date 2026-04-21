@@ -51,12 +51,13 @@ public static class PatchIntentPatternsWiring
             if (patterns.Count == 0) return;
 
             string creatureName = nCreature.Entity?.Name ?? "Unknown";
+            string monsterEntry = nCreature.Entity?.Monster?.Id.Entry ?? "";
 
             var modal = ModalHelper.GetModal();
             if (modal == null) return;
 
             NHoverTipSet.shouldBlockHoverTips = true;
-            var viewer = new IntentPatternsViewer(creatureName, patterns);
+            var viewer = new IntentPatternsViewer(creatureName, patterns, monsterEntry);
             viewer.TreeExited += () => NHoverTipSet.shouldBlockHoverTips = false;
             modal.Add(viewer, showBackstop: false);
         }
