@@ -112,7 +112,8 @@ internal partial class RunHistoryStatsViewer : Control, IScreenContext
 
     private void Build()
     {
-        _kreonFont ??= FontHelper.Load("kreon-bold");
+        if (_kreonFont == null || !GodotObject.IsInstanceValid(_kreonFont))
+            _kreonFont = FontHelper.Load("kreon-bold");
 
         // Build tab names.
         var tabNames = new List<string> { "Run Summary" };
