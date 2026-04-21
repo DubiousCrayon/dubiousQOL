@@ -86,12 +86,26 @@ internal static class IntentPatternsData
 
     private static readonly Dictionary<string, EffectToken> _tokens = new()
     {
-        ["THORNS"]   = EffectToken.Power("thorns_power",   "Thorns",   "#90EE90"),
-        ["RITUAL"]   = EffectToken.Power("ritual_power",   "Ritual",   "#90EE90"),
-        ["STRENGTH"] = EffectToken.Power("strength_power", "Strength", "#90EE90"),
-        ["WEAK"]     = EffectToken.Power("weak_power",     "Weak",     "#CC6666"),
-        ["FRAIL"]    = EffectToken.Power("frail_power",    "Frail",    "#CC6666"),
-        ["BLOCK"]    = EffectToken.Intent("intent_defend",  "Block",   "#6699CC"),
+        ["THORNS"]            = EffectToken.Power("thorns_power",             "Thorns",            "#90EE90"),
+        ["RITUAL"]            = EffectToken.Power("ritual_power",             "Ritual",            "#90EE90"),
+        ["STRENGTH"]          = EffectToken.Power("strength_power",           "Strength",          "#90EE90"),
+        ["VIGOR"]             = EffectToken.Power("vigor_power",              "Vigor",             "#90EE90"),
+        ["DEXTERITY"]         = EffectToken.Power("dexterity_power",          "Dexterity",         "#90EE90"),
+        ["PLOW"]              = EffectToken.Power("plow_power",               "Plow",              "#90EE90"),
+        ["SOAR"]              = EffectToken.Power("soar_power",               "Soar",              "#90EE90"),
+        ["INTANGIBLE"]        = EffectToken.Power("intangible_power",         "Intangible",        "#90EE90"),
+        ["WEAK"]              = EffectToken.Power("weak_power",               "Weak",              "#CC6666"),
+        ["FRAIL"]             = EffectToken.Power("frail_power",              "Frail",             "#CC6666"),
+        ["VULNERABLE"]        = EffectToken.Power("vulnerable_power",         "Vulnerable",        "#CC6666"),
+        ["SMOGGY"]            = EffectToken.Power("smoggy_power",             "Smoggy",            "#CC6666"),
+        ["CONSTRICT"]         = EffectToken.Power("constrict_power",          "Constrict",         "#CC6666"),
+        ["SHRINK"]            = EffectToken.Power("shrink_power",             "Shrink",            "#CC6666"),
+        ["TANGLED"]           = EffectToken.Power("tangled_power",            "Tangled",           "#CC6666"),
+        ["RINGING"]           = EffectToken.Power("ringing_power",            "Ringing",           "#CC6666"),
+        ["HEX"]               = EffectToken.Power("hex_power",                "Hex",               "#CC6666"),
+        ["CHAINS_OF_BINDING"] = EffectToken.Power("chains_of_binding_power",  "Chains of Binding", "#CC6666"),
+        ["STEAM_ERUPTION"]    = EffectToken.Power("steam_eruption_power",     "Steam Eruption",    "#FF8844"),
+        ["BLOCK"]             = EffectToken.Intent("intent_defend",            "Block",            "#6699CC"),
     };
 
     private static IntentPatternsFile? _enrichment;

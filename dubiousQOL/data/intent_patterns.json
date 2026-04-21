@@ -1,23 +1,733 @@
 {
   "version": 1,
   "creatures": {
+
     "TOADPOLE": {
       "moves": [
-        {
-          "stateId": "SPIKE_SPIT_MOVE",
-          "name": "Spike Spit",
-          "effect": "Deals [color=#FF6666]{damage}[/color] damage[color=#FF6666]{hits_suffix}[/color]. Removes 2 {THORNS} from self."
-        },
-        {
-          "stateId": "WHIRL_MOVE",
-          "name": "Whirl",
-          "effect": "Deals [color=#FF6666]{damage}[/color] damage."
-        },
-        {
-          "stateId": "SPIKEN_MOVE",
-          "name": "Spiken",
-          "effect": "Gains 2 {THORNS}."
-        }
+        { "stateId": "SPIKE_SPIT_MOVE", "name": "Spike Spit", "effect": "Deals [color=#FF6666]{damage}[/color] damage[color=#FF6666]{hits_suffix}[/color]. Removes 2 {THORNS} from self." },
+        { "stateId": "WHIRL_MOVE", "name": "Whirl", "effect": "Deals [color=#FF6666]{damage}[/color] damage." },
+        { "stateId": "SPIKEN_MOVE", "name": "Spiken", "effect": "Gains 2 {THORNS}." }
+      ]
+    },
+    "NIBBIT": {
+      "moves": [
+        { "stateId": "BUTT_MOVE", "name": "Butt", "effect": "Deals [color=#FF6666]{damage}[/color] damage." },
+        { "stateId": "SLICE_MOVE", "name": "Hesitant Slice", "effect": "Deals [color=#FF6666]{damage}[/color] damage. Gains 5 {BLOCK}." },
+        { "stateId": "HISS_MOVE", "name": "Hiss", "effect": "Gains 2 {STRENGTH}." }
+      ]
+    },
+    "LEAF_SLIME_S": {
+      "moves": [
+        { "stateId": "BUTT_MOVE", "name": "Tackle", "effect": "Deals [color=#FF6666]{damage}[/color] damage." },
+        { "stateId": "GOOP_MOVE", "name": "Goop", "effect": "Shuffles 1 Slimed into your discard pile." }
+      ]
+    },
+    "LEAF_SLIME_M": {
+      "moves": [
+        { "stateId": "CLUMP_SHOT", "name": "Clump Shot", "effect": "Deals [color=#FF6666]{damage}[/color] damage." },
+        { "stateId": "STICKY_SHOT", "name": "Sticky Shot", "effect": "Shuffles 2 Slimed into your discard pile." }
+      ]
+    },
+    "TWIG_SLIME_S": {
+      "moves": [
+        { "stateId": "BUTT_MOVE", "name": "Tackle", "effect": "Deals [color=#FF6666]{damage}[/color] damage." }
+      ]
+    },
+    "TWIG_SLIME_M": {
+      "moves": [
+        { "stateId": "CLUMP_SHOT_MOVE", "name": "Chomp", "effect": "Deals [color=#FF6666]{damage}[/color] damage." },
+        { "stateId": "STICKY_SHOT_MOVE", "name": "Sticky Shot", "effect": "Shuffles 1 Slimed into your discard pile." }
+      ]
+    },
+    "SHRINKER_BEETLE": {
+      "moves": [
+        { "stateId": "SHRINKER_MOVE", "name": "Shrinker", "effect": "Applies {SHRINK}." },
+        { "stateId": "CHOMP_MOVE", "name": "Chomp", "effect": "Deals [color=#FF6666]{damage}[/color] damage." },
+        { "stateId": "STOMP_MOVE", "name": "Stomp", "effect": "Deals [color=#FF6666]{damage}[/color] damage." }
+      ]
+    },
+    "FUZZY_WURM_CRAWLER": {
+      "moves": [
+        { "stateId": "FIRST_ACID_GOOP", "name": "Acid Goop", "effect": "Deals [color=#FF6666]{damage}[/color] damage." },
+        { "stateId": "INHALE", "name": "Inhale", "effect": "Gains 7 {STRENGTH}." },
+        { "stateId": "ACID_GOOP", "name": "Acid Goop", "effect": "Deals [color=#FF6666]{damage}[/color] damage." }
+      ]
+    },
+    "INKLET": {
+      "moves": [
+        { "stateId": "JAB_MOVE", "name": "Jab", "effect": "Deals [color=#FF6666]{damage}[/color] damage." },
+        { "stateId": "WHIRLWIND_MOVE", "name": "Windup Punch", "effect": "Deals [color=#FF6666]{damage}[/color] damage[color=#FF6666]{hits_suffix}[/color]." },
+        { "stateId": "PIERCING_GAZE_MOVE", "name": "Piercing Gaze", "effect": "Deals [color=#FF6666]{damage}[/color] damage." }
+      ]
+    },
+    "FLYCONID": {
+      "moves": [
+        { "stateId": "VULNERABLE_SPORES_MOVE", "name": "Weakening Spores", "effect": "Applies 2 {VULNERABLE}." },
+        { "stateId": "FRAIL_SPORES_MOVE", "name": "Frail Spores", "effect": "Deals [color=#FF6666]{damage}[/color] damage. Applies 2 {FRAIL}." },
+        { "stateId": "SMASH_MOVE", "name": "Smash", "effect": "Deals [color=#FF6666]{damage}[/color] damage." }
+      ]
+    },
+    "FOGMOG": {
+      "moves": [
+        { "stateId": "ILLUSION_MOVE", "name": "Illusory Spores", "effect": "Summons an Eye With Teeth." },
+        { "stateId": "SWIPE_MOVE", "name": "Thwack", "effect": "Deals [color=#FF6666]{damage}[/color] damage. Gains 1 {STRENGTH}." },
+        { "stateId": "SWIPE_RANDOM_MOVE", "name": "Thwack", "effect": "Deals [color=#FF6666]{damage}[/color] damage. Gains 1 {STRENGTH}." },
+        { "stateId": "HEADBUTT_MOVE", "name": "Headbutt", "effect": "Deals [color=#FF6666]{damage}[/color] damage." }
+      ]
+    },
+    "EYE_WITH_TEETH": {
+      "moves": [
+        { "stateId": "DISTRACT_MOVE", "name": "Distract", "effect": "Shuffles 3 Dazed into your discard pile." }
+      ]
+    },
+    "MAWLER": {
+      "moves": [
+        { "stateId": "CLAW_MOVE", "name": "Claw", "effect": "Deals [color=#FF6666]{damage}[/color] damage[color=#FF6666]{hits_suffix}[/color]." },
+        { "stateId": "RIP_AND_TEAR_MOVE", "name": "Rip and Tear", "effect": "Deals [color=#FF6666]{damage}[/color] damage." },
+        { "stateId": "ROAR_MOVE", "name": "Roar", "effect": "Applies 3 {VULNERABLE}." }
+      ]
+    },
+    "SNAPPING_JAXFRUIT": {
+      "moves": [
+        { "stateId": "ENERGY_ORB_MOVE", "name": "Energy Orb", "effect": "Deals [color=#FF6666]{damage}[/color] damage. Gains 2 {STRENGTH}." }
+      ]
+    },
+    "SLITHERING_STRANGLER": {
+      "moves": [
+        { "stateId": "CONSTRICT", "name": "Constrict", "effect": "Applies 3 {CONSTRICT}." },
+        { "stateId": "TWACK", "name": "Thwack", "effect": "Deals [color=#FF6666]{damage}[/color] damage. Gains 5 {BLOCK}." },
+        { "stateId": "LASH", "name": "Lash", "effect": "Deals [color=#FF6666]{damage}[/color] damage." }
+      ]
+    },
+    "VINE_SHAMBLER": {
+      "moves": [
+        { "stateId": "GRASPING_VINES_MOVE", "name": "Grasping Vines", "effect": "Deals [color=#FF6666]{damage}[/color] damage. Applies 1 {TANGLED}." },
+        { "stateId": "SWIPE_MOVE", "name": "Swipe", "effect": "Deals [color=#FF6666]{damage}[/color] damage[color=#FF6666]{hits_suffix}[/color]." },
+        { "stateId": "CHOMP_MOVE", "name": "Chomp", "effect": "Deals [color=#FF6666]{damage}[/color] damage." }
+      ]
+    },
+    "CUBEX_CONSTRUCT": {
+      "moves": [
+        { "stateId": "CHARGE_UP_MOVE", "name": "Charge Up", "effect": "Gains 2 {STRENGTH}." },
+        { "stateId": "REPEATER_MOVE", "name": "Repeater Blast", "effect": "Deals [color=#FF6666]{damage}[/color] damage. Gains 2 {STRENGTH}." },
+        { "stateId": "REPEATER_MOVE_2", "name": "Repeater Blast", "effect": "Deals [color=#FF6666]{damage}[/color] damage. Gains 2 {STRENGTH}." },
+        { "stateId": "EXPEL_BLAST", "name": "Expel Blast", "effect": "Deals [color=#FF6666]{damage}[/color] damage[color=#FF6666]{hits_suffix}[/color]." },
+        { "stateId": "SUBMERGE_MOVE", "name": "Submerge", "effect": "Gains 15 {BLOCK}." }
+      ]
+    },
+    "AXE_RUBY_RAIDER": {
+      "moves": [
+        { "stateId": "SWING_1", "name": "Swing", "effect": "Deals [color=#FF6666]{damage}[/color] damage. Gains 5 {BLOCK}." },
+        { "stateId": "SWING_2", "name": "Swing", "effect": "Deals [color=#FF6666]{damage}[/color] damage. Gains 5 {BLOCK}." },
+        { "stateId": "BIG_SWING", "name": "Big Swing", "effect": "Deals [color=#FF6666]{damage}[/color] damage." }
+      ]
+    },
+    "BRUTE_RUBY_RAIDER": {
+      "moves": [
+        { "stateId": "BEAT_MOVE", "name": "Beat", "effect": "Deals [color=#FF6666]{damage}[/color] damage." },
+        { "stateId": "ROAR_MOVE", "name": "Clap", "effect": "Gains 3 {STRENGTH}." }
+      ]
+    },
+    "ASSASSIN_RUBY_RAIDER": {
+      "moves": [
+        { "stateId": "KILLSHOT_MOVE", "name": "Killshot", "effect": "Deals [color=#FF6666]{damage}[/color] damage." }
+      ]
+    },
+    "CROSSBOW_RUBY_RAIDER": {
+      "moves": [
+        { "stateId": "RELOAD_MOVE", "name": "Reload", "effect": "Gains 3 {BLOCK}." },
+        { "stateId": "FIRE_MOVE", "name": "Fire!", "effect": "Deals [color=#FF6666]{damage}[/color] damage." }
+      ]
+    },
+    "TRACKER_RUBY_RAIDER": {
+      "moves": [
+        { "stateId": "TRACK_MOVE", "name": "Track", "effect": "Applies 2 {FRAIL}." },
+        { "stateId": "HOUNDS_MOVE", "name": "Unleash the Hounds", "effect": "Deals [color=#FF6666]{damage}[/color] damage[color=#FF6666]{hits_suffix}[/color]." }
+      ]
+    },
+    "BYGONE_EFFIGY": {
+      "moves": [
+        { "stateId": "INITIAL_SLEEP_MOVE", "name": "Sleep", "effect": "Does nothing." },
+        { "stateId": "WAKE_MOVE", "name": "Wake", "effect": "Gains 10 {STRENGTH}." },
+        { "stateId": "SLASHES_MOVE", "name": "Slashes", "effect": "Deals [color=#FF6666]{damage}[/color] damage." }
+      ]
+    },
+    "BYRDONIS": {
+      "moves": [
+        { "stateId": "SWOOP_MOVE", "name": "Swoop", "effect": "Deals [color=#FF6666]{damage}[/color] damage." },
+        { "stateId": "PECK_MOVE", "name": "Peck", "effect": "Deals [color=#FF6666]{damage}[/color] damage[color=#FF6666]{hits_suffix}[/color]." }
+      ]
+    },
+    "PHROG_PARASITE": {
+      "moves": [
+        { "stateId": "INFECT_MOVE", "name": "Infect", "effect": "Shuffles 3 Infection into your discard pile." },
+        { "stateId": "LASH_MOVE", "name": "Lash", "effect": "Deals [color=#FF6666]{damage}[/color] damage[color=#FF6666]{hits_suffix}[/color]." }
+      ]
+    },
+    "CEREMONIAL_BEAST": {
+      "moves": [
+        { "stateId": "STAMP_MOVE", "name": "Stamp", "effect": "Gains {PLOW}." },
+        { "stateId": "PLOW_MOVE", "name": "Plow", "effect": "Deals [color=#FF6666]{damage}[/color] damage. Gains 2 {STRENGTH}." },
+        { "stateId": "STUN_MOVE", "name": "Stunned", "effect": "Does nothing. Stunned." },
+        { "stateId": "BEAST_CRY_MOVE", "name": "Beast Cry", "effect": "Applies 1 {RINGING}." },
+        { "stateId": "STOMP_MOVE", "name": "Stomp", "effect": "Deals [color=#FF6666]{damage}[/color] damage." },
+        { "stateId": "CRUSH_MOVE", "name": "Crush", "effect": "Deals [color=#FF6666]{damage}[/color] damage. Gains 3 {STRENGTH}." }
+      ]
+    },
+    "KIN_PRIEST": {
+      "moves": [
+        { "stateId": "ORB_OF_FRAILTY_MOVE", "name": "Orb of Frailty", "effect": "Deals [color=#FF6666]{damage}[/color] damage. Applies 1 {FRAIL}." },
+        { "stateId": "ORB_OF_WEAKNESS_MOVE", "name": "Orb of Weakness", "effect": "Deals [color=#FF6666]{damage}[/color] damage. Applies 1 {WEAK}." },
+        { "stateId": "BEAM_MOVE", "name": "Soul Beam", "effect": "Deals [color=#FF6666]{damage}[/color] damage[color=#FF6666]{hits_suffix}[/color]." },
+        { "stateId": "RITUAL_MOVE", "name": "Dark Ritual", "effect": "Gains 2 {STRENGTH}." }
+      ]
+    },
+    "KIN_FOLLOWER": {
+      "moves": [
+        { "stateId": "QUICK_SLASH_MOVE", "name": "Quick Slash", "effect": "Deals [color=#FF6666]{damage}[/color] damage." },
+        { "stateId": "BOOMERANG_MOVE", "name": "Boomerang", "effect": "Deals [color=#FF6666]{damage}[/color] damage[color=#FF6666]{hits_suffix}[/color]." },
+        { "stateId": "POWER_DANCE_MOVE", "name": "Power Dance", "effect": "Gains 2 {STRENGTH}." }
+      ]
+    },
+    "VANTOM": {
+      "moves": [
+        { "stateId": "INK_BLOT_MOVE", "name": "Ink Blot", "effect": "Deals [color=#FF6666]{damage}[/color] damage." },
+        { "stateId": "INKY_LANCE_MOVE", "name": "Inky Lance", "effect": "Deals [color=#FF6666]{damage}[/color] damage[color=#FF6666]{hits_suffix}[/color]." },
+        { "stateId": "DISMEMBER_MOVE", "name": "Dismember", "effect": "Deals [color=#FF6666]{damage}[/color] damage. Shuffles 3 Wounds into your discard pile." },
+        { "stateId": "PREPARE_MOVE", "name": "Prepare", "effect": "Gains 2 {STRENGTH}." }
+      ]
+    },
+
+    "CORPSE_SLUG": {
+      "moves": [
+        { "stateId": "WHIP_SLAP_MOVE", "name": "Whip Slap", "effect": "Deals [color=#FF6666]{damage}[/color] damage[color=#FF6666]{hits_suffix}[/color]." },
+        { "stateId": "GLOMP_MOVE", "name": "Glomp", "effect": "Deals [color=#FF6666]{damage}[/color] damage." },
+        { "stateId": "GOOP_MOVE", "name": "Goop", "effect": "Applies 2 {FRAIL}." }
+      ]
+    },
+    "SEAPUNK": {
+      "moves": [
+        { "stateId": "SEA_KICK_MOVE", "name": "Sea Kick", "effect": "Deals [color=#FF6666]{damage}[/color] damage." },
+        { "stateId": "SPINNING_KICK_MOVE", "name": "Spinning Kick", "effect": "Deals [color=#FF6666]{damage}[/color] damage[color=#FF6666]{hits_suffix}[/color]." },
+        { "stateId": "BUBBLE_BURP_MOVE", "name": "Bubble Burp", "effect": "Gains {BLOCK}. Gains {STRENGTH}." }
+      ]
+    },
+    "SLUDGE_SPINNER": {
+      "moves": [
+        { "stateId": "OIL_SPRAY_MOVE", "name": "Oil Spray", "effect": "Deals [color=#FF6666]{damage}[/color] damage. Applies 1 {WEAK}." },
+        { "stateId": "SLAM_MOVE", "name": "Slam", "effect": "Deals [color=#FF6666]{damage}[/color] damage." },
+        { "stateId": "RAGE_MOVE", "name": "Rage", "effect": "Deals [color=#FF6666]{damage}[/color] damage. Gains 3 {STRENGTH}." }
+      ]
+    },
+    "CALCIFIED_CULTIST": {
+      "moves": [
+        { "stateId": "INCANTATION_MOVE", "name": "Incantation", "effect": "Gains 2 {RITUAL}." },
+        { "stateId": "DARK_STRIKE_MOVE", "name": "Dark Strike", "effect": "Deals [color=#FF6666]{damage}[/color] damage." }
+      ]
+    },
+    "DAMP_CULTIST": {
+      "moves": [
+        { "stateId": "INCANTATION_MOVE", "name": "Incantation", "effect": "Gains {RITUAL}." },
+        { "stateId": "DARK_STRIKE_MOVE", "name": "Dark Strike", "effect": "Deals [color=#FF6666]{damage}[/color] damage." }
+      ]
+    },
+    "LIVING_FOG": {
+      "moves": [
+        { "stateId": "ADVANCED_GAS_MOVE", "name": "Advanced Gas", "effect": "Deals [color=#FF6666]{damage}[/color] damage. Applies 1 {SMOGGY}." },
+        { "stateId": "BLOAT_MOVE", "name": "Bloat", "effect": "Deals [color=#FF6666]{damage}[/color] damage. Summons Gas Bombs." },
+        { "stateId": "SUPER_GAS_BLAST_MOVE", "name": "Super Gas Blast", "effect": "Deals [color=#FF6666]{damage}[/color] damage." }
+      ]
+    },
+    "GAS_BOMB": {
+      "moves": [
+        { "stateId": "EXPLODE_MOVE", "name": "Explode", "effect": "Deals [color=#FF6666]{damage}[/color] damage. Dies." }
+      ]
+    },
+    "FOSSIL_STALKER": {
+      "moves": [
+        { "stateId": "LATCH_MOVE", "name": "Latch", "effect": "Deals [color=#FF6666]{damage}[/color] damage." },
+        { "stateId": "TACKLE_MOVE", "name": "Tackle", "effect": "Deals [color=#FF6666]{damage}[/color] damage. Applies 1 {FRAIL}." },
+        { "stateId": "LASH_MOVE", "name": "Lash", "effect": "Deals [color=#FF6666]{damage}[/color] damage[color=#FF6666]{hits_suffix}[/color]." }
+      ]
+    },
+    "GREMLIN_MERC": {
+      "moves": [
+        { "stateId": "GIMME_MOVE", "name": "Gimme", "effect": "Deals [color=#FF6666]{damage}[/color] damage[color=#FF6666]{hits_suffix}[/color]. Steals gold." },
+        { "stateId": "DOUBLE_SMASH_MOVE", "name": "Double Smash", "effect": "Deals [color=#FF6666]{damage}[/color] damage[color=#FF6666]{hits_suffix}[/color]. Steals gold. Applies 2 {WEAK}." },
+        { "stateId": "HEHE_MOVE", "name": "Hehe", "effect": "Deals [color=#FF6666]{damage}[/color] damage. Steals gold. Gains 2 {STRENGTH}." }
+      ]
+    },
+    "FAT_GREMLIN": {
+      "moves": [
+        { "stateId": "SPAWNED_MOVE", "name": "Spawned", "effect": "Waking up." },
+        { "stateId": "FLEE_MOVE", "name": "Flee", "effect": "Escapes from combat." }
+      ]
+    },
+    "SNEAKY_GREMLIN": {
+      "moves": [
+        { "stateId": "SPAWNED_MOVE", "name": "Spawned", "effect": "Waking up." },
+        { "stateId": "TACKLE_MOVE", "name": "Tackle", "effect": "Deals [color=#FF6666]{damage}[/color] damage." }
+      ]
+    },
+    "HAUNTED_SHIP": {
+      "moves": [
+        { "stateId": "RAMMING_SPEED_MOVE", "name": "Ramming Speed", "effect": "Deals [color=#FF6666]{damage}[/color] damage. Shuffles 2 [color=#CC6666]Wounds[/color] into discard pile." },
+        { "stateId": "SWIPE_MOVE", "name": "Swipe", "effect": "Deals [color=#FF6666]{damage}[/color] damage." },
+        { "stateId": "STOMP_MOVE", "name": "Stomp", "effect": "Deals [color=#FF6666]{damage}[/color] damage[color=#FF6666]{hits_suffix}[/color]." },
+        { "stateId": "HAUNT_MOVE", "name": "Haunt", "effect": "Applies 2 {WEAK}, 2 {FRAIL}, and 2 {VULNERABLE}." }
+      ]
+    },
+    "PUNCH_CONSTRUCT": {
+      "moves": [
+        { "stateId": "READY_MOVE", "name": "Ready", "effect": "Gains 10 {BLOCK}." },
+        { "stateId": "STRONG_PUNCH_MOVE", "name": "Strong Punch", "effect": "Deals [color=#FF6666]{damage}[/color] damage." },
+        { "stateId": "FAST_PUNCH_MOVE", "name": "Fast Punch", "effect": "Deals [color=#FF6666]{damage}[/color] damage[color=#FF6666]{hits_suffix}[/color]. Applies 1 {WEAK}." }
+      ]
+    },
+    "SEWER_CLAM": {
+      "moves": [
+        { "stateId": "JET_MOVE", "name": "Jet", "effect": "Deals [color=#FF6666]{damage}[/color] damage." },
+        { "stateId": "PRESSURIZE_MOVE", "name": "Pressurize", "effect": "Gains 4 {STRENGTH}." }
+      ]
+    },
+    "TWO_TAILED_RAT": {
+      "moves": [
+        { "stateId": "SCRATCH_MOVE", "name": "Scratch", "effect": "Deals [color=#FF6666]{damage}[/color] damage." },
+        { "stateId": "DISEASE_BITE_MOVE", "name": "Disease Bite", "effect": "Deals [color=#FF6666]{damage}[/color] damage." },
+        { "stateId": "SCREECH_MOVE", "name": "Screech", "effect": "Applies 1 {FRAIL}." },
+        { "stateId": "CALL_FOR_BACKUP_MOVE", "name": "Call for Backup", "effect": "Summons a Two-Tailed Rat." }
+      ]
+    },
+    "SKULKING_COLONY": {
+      "moves": [
+        { "stateId": "SMASH_MOVE", "name": "Smash", "effect": "Deals [color=#FF6666]{damage}[/color] damage. Shuffles 4 [color=#CC6666]Dazed[/color] into discard pile." },
+        { "stateId": "ZOOM_MOVE", "name": "Zoom", "effect": "Deals [color=#FF6666]{damage}[/color] damage." },
+        { "stateId": "INERTIA_MOVE", "name": "Inertia", "effect": "Gains {BLOCK}. Gains 3 {STRENGTH}." },
+        { "stateId": "SUPER_CRAB_MOVE", "name": "Super Crab", "effect": "Deals [color=#FF6666]{damage}[/color] damage[color=#FF6666]{hits_suffix}[/color]." }
+      ]
+    },
+    "PHANTASMAL_GARDENER": {
+      "moves": [
+        { "stateId": "BITE_MOVE", "name": "Bite", "effect": "Deals [color=#FF6666]{damage}[/color] damage." },
+        { "stateId": "LASH_MOVE", "name": "Lash", "effect": "Deals [color=#FF6666]{damage}[/color] damage." },
+        { "stateId": "FLAIL_MOVE", "name": "Flail", "effect": "Deals [color=#FF6666]{damage}[/color] damage[color=#FF6666]{hits_suffix}[/color]." },
+        { "stateId": "ENLARGE_MOVE", "name": "Enlarge", "effect": "Gains {STRENGTH}." }
+      ]
+    },
+    "TERROR_EEL": {
+      "moves": [
+        { "stateId": "CRASH_MOVE", "name": "Crash", "effect": "Deals [color=#FF6666]{damage}[/color] damage." },
+        { "stateId": "ThrashMove", "name": "Thrash", "effect": "Deals [color=#FF6666]{damage}[/color] damage[color=#FF6666]{hits_suffix}[/color]. Gains 7 {VIGOR}." },
+        { "stateId": "STUN_MOVE", "name": "Stun", "effect": "Stunned." },
+        { "stateId": "TERROR_MOVE", "name": "Terror", "effect": "Applies 99 {VULNERABLE}." }
+      ]
+    },
+    "WATERFALL_GIANT": {
+      "moves": [
+        { "stateId": "PRESSURIZE_MOVE", "name": "Pressurize", "effect": "Gains {STEAM_ERUPTION}." },
+        { "stateId": "STOMP_MOVE", "name": "Stomp", "effect": "Deals [color=#FF6666]{damage}[/color] damage. Applies 1 {WEAK}. Gains 3 {STEAM_ERUPTION}." },
+        { "stateId": "RAM_MOVE", "name": "Ram", "effect": "Deals [color=#FF6666]{damage}[/color] damage. Gains 3 {STEAM_ERUPTION}." },
+        { "stateId": "SIPHON_MOVE", "name": "Siphon", "effect": "Heals [color=#90EE90]15[/color] HP per player. Gains 3 {STEAM_ERUPTION}." },
+        { "stateId": "PRESSURE_GUN_MOVE", "name": "Pressure Gun", "effect": "Deals [color=#FF6666]{damage}[/color] damage. Gains 3 {STEAM_ERUPTION}. Damage increases by 5 each use." },
+        { "stateId": "PRESSURE_UP_MOVE", "name": "Pressure Up", "effect": "Deals [color=#FF6666]{damage}[/color] damage. Gains 3 {STEAM_ERUPTION}." },
+        { "stateId": "ABOUT_TO_BLOW_MOVE", "name": "About To Blow", "effect": "Becomes invulnerable. Prepares to explode." },
+        { "stateId": "EXPLODE_MOVE", "name": "Explode", "effect": "Deals [color=#FF6666]{damage}[/color] damage. Dies." }
+      ]
+    },
+    "SOUL_FYSH": {
+      "moves": [
+        { "stateId": "BECKON_MOVE", "name": "Beckon", "effect": "Shuffles 2 [color=#CC6666]Beckons[/color] into your deck." },
+        { "stateId": "DE_GAS_MOVE", "name": "De-Gas", "effect": "Deals [color=#FF6666]{damage}[/color] damage." },
+        { "stateId": "GAZE_MOVE", "name": "Gaze", "effect": "Deals [color=#FF6666]{damage}[/color] damage. Shuffles 1 [color=#CC6666]Beckon[/color] into discard pile." },
+        { "stateId": "FADE_MOVE", "name": "Fade", "effect": "Gains 2 {INTANGIBLE}." },
+        { "stateId": "SCREAM_MOVE", "name": "Scream", "effect": "Deals [color=#FF6666]{damage}[/color] damage. Applies 3 {VULNERABLE}." }
+      ]
+    },
+    "LAGAVULIN_MATRIARCH": {
+      "moves": [
+        { "stateId": "SLEEP_MOVE", "name": "Sleep", "effect": "Asleep." },
+        { "stateId": "SLASH_MOVE", "name": "Slash", "effect": "Deals [color=#FF6666]{damage}[/color] damage." },
+        { "stateId": "DISEMBOWEL_MOVE", "name": "Disembowel", "effect": "Deals [color=#FF6666]{damage}[/color] damage[color=#FF6666]{hits_suffix}[/color]." },
+        { "stateId": "SLASH2_MOVE", "name": "Slash", "effect": "Deals [color=#FF6666]{damage}[/color] damage. Gains {BLOCK}." },
+        { "stateId": "SOUL_SIPHON_MOVE", "name": "Soul Siphon", "effect": "Removes 2 {STRENGTH} and 2 {DEXTERITY} from you. Gains 2 {STRENGTH}." }
+      ]
+    },
+
+    "BOWLBUG_EGG": {
+      "moves": [
+        { "stateId": "BITE_MOVE", "name": "Bite", "effect": "Deals [color=#FF6666]{damage}[/color] damage. Gains 7 {BLOCK}." }
+      ]
+    },
+    "BOWLBUG_ROCK": {
+      "moves": [
+        { "stateId": "HEADBUTT_MOVE", "name": "Headbutt", "effect": "Deals [color=#FF6666]{damage}[/color] damage." },
+        { "stateId": "DIZZY_MOVE", "name": "Dizzy", "effect": "Stunned. Does nothing." }
+      ]
+    },
+    "BOWLBUG_SILK": {
+      "moves": [
+        { "stateId": "TOXIC_SPIT_MOVE", "name": "Spin Web", "effect": "Applies 1 {WEAK}." },
+        { "stateId": "TRASH_MOVE", "name": "Thrash", "effect": "Deals [color=#FF6666]{damage}[/color] damage[color=#FF6666]{hits_suffix}[/color]." }
+      ]
+    },
+    "BOWLBUG_NECTAR": {
+      "moves": [
+        { "stateId": "THRASH_MOVE", "name": "Thrash", "effect": "Deals [color=#FF6666]{damage}[/color] damage." },
+        { "stateId": "BUFF_MOVE", "name": "Buff", "effect": "Gains 15 {STRENGTH}." },
+        { "stateId": "THRASH2_MOVE", "name": "Thrash", "effect": "Deals [color=#FF6666]{damage}[/color] damage." }
+      ]
+    },
+    "EXOSKELETON": {
+      "moves": [
+        { "stateId": "SKITTER_MOVE", "name": "Skitter", "effect": "Deals [color=#FF6666]{damage}[/color] damage[color=#FF6666]{hits_suffix}[/color]." },
+        { "stateId": "MANDIBLE_MOVE", "name": "Mandibles", "effect": "Deals [color=#FF6666]{damage}[/color] damage." },
+        { "stateId": "ENRAGE_MOVE", "name": "Enrage", "effect": "Gains 2 {STRENGTH}." }
+      ]
+    },
+    "THIEVING_HOPPER": {
+      "moves": [
+        { "stateId": "THIEVERY_MOVE", "name": "Thievery", "effect": "Deals [color=#FF6666]{damage}[/color] damage. Steals a card from your deck." },
+        { "stateId": "FLUTTER_MOVE", "name": "Flutter", "effect": "Gains Flutter (takes 50% less Attack damage; requires 5 hits to stun)." },
+        { "stateId": "HAT_TRICK_MOVE", "name": "Hat Trick", "effect": "Deals [color=#FF6666]{damage}[/color] damage." },
+        { "stateId": "NAB_MOVE", "name": "Nab", "effect": "Deals [color=#FF6666]{damage}[/color] damage." },
+        { "stateId": "ESCAPE_MOVE", "name": "Escape", "effect": "Flees combat, taking any stolen cards." }
+      ]
+    },
+    "TUNNELER": {
+      "moves": [
+        { "stateId": "BITE_MOVE", "name": "Bite", "effect": "Deals [color=#FF6666]{damage}[/color] damage." },
+        { "stateId": "BURROW_MOVE", "name": "Burrow", "effect": "Gains 32 {BLOCK}. Becomes Burrowed." },
+        { "stateId": "BELOW_MOVE_1", "name": "Attack from Below", "effect": "Deals [color=#FF6666]{damage}[/color] damage." },
+        { "stateId": "DIZZY_MOVE", "name": "Emerging Strike", "effect": "Stunned. Does nothing." }
+      ]
+    },
+    "CHOMPER": {
+      "moves": [
+        { "stateId": "CLAMP_MOVE", "name": "Clamp", "effect": "Deals [color=#FF6666]{damage}[/color] damage[color=#FF6666]{hits_suffix}[/color]." },
+        { "stateId": "SCREECH_MOVE", "name": "Screech", "effect": "Shuffles 3 Dazed into your discard pile." }
+      ]
+    },
+    "HUNTER_KILLER": {
+      "moves": [
+        { "stateId": "TENDERIZING_GOOP_MOVE", "name": "Tenderizing Goop", "effect": "Applies 1 Tender." },
+        { "stateId": "BITE_MOVE", "name": "Bite", "effect": "Deals [color=#FF6666]{damage}[/color] damage." },
+        { "stateId": "PUNCTURE_MOVE", "name": "Puncture", "effect": "Deals [color=#FF6666]{damage}[/color] damage[color=#FF6666]{hits_suffix}[/color]." }
+      ]
+    },
+    "LOUSE_PROGENITOR": {
+      "moves": [
+        { "stateId": "WEB_CANNON_MOVE", "name": "Web Cannon", "effect": "Deals [color=#FF6666]{damage}[/color] damage. Applies 2 {FRAIL}." },
+        { "stateId": "CURL_AND_GROW_MOVE", "name": "Curl and Grow", "effect": "Gains 14 {BLOCK}. Gains 5 {STRENGTH}." },
+        { "stateId": "POUNCE_MOVE", "name": "Pounce", "effect": "Deals [color=#FF6666]{damage}[/color] damage." }
+      ]
+    },
+    "MYTE": {
+      "moves": [
+        { "stateId": "TOXIC_MOVE", "name": "Toxic Cornucopia", "effect": "Adds 2 Toxic to your hand." },
+        { "stateId": "BITE_MOVE", "name": "Bite", "effect": "Deals [color=#FF6666]{damage}[/color] damage." },
+        { "stateId": "SUCK_MOVE", "name": "Suck", "effect": "Deals [color=#FF6666]{damage}[/color] damage. Gains 2 {STRENGTH}." }
+      ]
+    },
+    "OVICOPTER": {
+      "moves": [
+        { "stateId": "LAY_EGGS_MOVE", "name": "Lay Eggs", "effect": "Summons 3 Tough Eggs." },
+        { "stateId": "SMASH_MOVE", "name": "Smash", "effect": "Deals [color=#FF6666]{damage}[/color] damage." },
+        { "stateId": "TENDERIZER_MOVE", "name": "Tenderizer", "effect": "Deals [color=#FF6666]{damage}[/color] damage. Applies 2 {VULNERABLE}." },
+        { "stateId": "NUTRITIONAL_PASTE_MOVE", "name": "Nutritional Paste", "effect": "Gains 3 {STRENGTH}." }
+      ]
+    },
+    "TOUGH_EGG": {
+      "moves": [
+        { "stateId": "HATCH_MOVE", "name": "Hatch", "effect": "Transforms into a Hatchling with new HP. Removes all powers except Minion." },
+        { "stateId": "NIBBLE_MOVE", "name": "Nibble", "effect": "Deals [color=#FF6666]{damage}[/color] damage." }
+      ]
+    },
+    "SLUMBERING_BEETLE": {
+      "moves": [
+        { "stateId": "SNORE_MOVE", "name": "Snore", "effect": "Asleep. Does nothing." },
+        { "stateId": "ROLL_OUT_MOVE", "name": "Roll Out", "effect": "Deals [color=#FF6666]{damage}[/color] damage. Gains 2 {STRENGTH}." }
+      ]
+    },
+    "SPINY_TOAD": {
+      "moves": [
+        { "stateId": "PROTRUDING_SPIKES_MOVE", "name": "Protruding Spikes", "effect": "Gains 5 {THORNS}." },
+        { "stateId": "SPIKE_EXPLOSION_MOVE", "name": "Spike Explosion", "effect": "Deals [color=#FF6666]{damage}[/color] damage. Loses 5 {THORNS}." },
+        { "stateId": "TONGUE_LASH_MOVE", "name": "Tongue Lash", "effect": "Deals [color=#FF6666]{damage}[/color] damage." }
+      ]
+    },
+    "THE_OBSCURA": {
+      "moves": [
+        { "stateId": "ILLUSION_MOVE", "name": "Illusion", "effect": "Summons a Parafright." },
+        { "stateId": "PIERCING_GAZE_MOVE", "name": "Piercing Gaze", "effect": "Deals [color=#FF6666]{damage}[/color] damage." },
+        { "stateId": "SAIL_MOVE", "name": "Wail", "effect": "All enemies gain 3 {STRENGTH}." },
+        { "stateId": "HARDENING_STRIKE_MOVE", "name": "Hardening Strike", "effect": "Deals [color=#FF6666]{damage}[/color] damage. Gains 6 {BLOCK}." }
+      ]
+    },
+    "PARAFRIGHT": {
+      "moves": [
+        { "stateId": "SLAM_MOVE", "name": "Slam", "effect": "Deals [color=#FF6666]{damage}[/color] damage." }
+      ]
+    },
+    "DECIMILLIPEDE_SEGMENT_FRONT": {
+      "moves": [
+        { "stateId": "WRITHE_MOVE", "name": "Writhe", "effect": "Deals [color=#FF6666]{damage}[/color] damage[color=#FF6666]{hits_suffix}[/color]." },
+        { "stateId": "BULK_MOVE", "name": "Bulk", "effect": "Deals [color=#FF6666]{damage}[/color] damage. Gains 2 {STRENGTH}." },
+        { "stateId": "CONSTRICT_MOVE", "name": "Outgas", "effect": "Deals [color=#FF6666]{damage}[/color] damage. Applies 1 {WEAK}." },
+        { "stateId": "REATTACH_MOVE", "name": "Reattach", "effect": "Revives with 25 HP (if other segments are alive)." }
+      ]
+    },
+    "DECIMILLIPEDE_SEGMENT_MIDDLE": {
+      "moves": [
+        { "stateId": "WRITHE_MOVE", "name": "Writhe", "effect": "Deals [color=#FF6666]{damage}[/color] damage[color=#FF6666]{hits_suffix}[/color]." },
+        { "stateId": "BULK_MOVE", "name": "Bulk", "effect": "Deals [color=#FF6666]{damage}[/color] damage. Gains 2 {STRENGTH}." },
+        { "stateId": "CONSTRICT_MOVE", "name": "Outgas", "effect": "Deals [color=#FF6666]{damage}[/color] damage. Applies 1 {WEAK}." },
+        { "stateId": "REATTACH_MOVE", "name": "Reattach", "effect": "Revives with 25 HP (if other segments are alive)." }
+      ]
+    },
+    "DECIMILLIPEDE_SEGMENT_BACK": {
+      "moves": [
+        { "stateId": "WRITHE_MOVE", "name": "Writhe", "effect": "Deals [color=#FF6666]{damage}[/color] damage[color=#FF6666]{hits_suffix}[/color]." },
+        { "stateId": "BULK_MOVE", "name": "Bulk", "effect": "Deals [color=#FF6666]{damage}[/color] damage. Gains 2 {STRENGTH}." },
+        { "stateId": "CONSTRICT_MOVE", "name": "Outgas", "effect": "Deals [color=#FF6666]{damage}[/color] damage. Applies 1 {WEAK}." },
+        { "stateId": "REATTACH_MOVE", "name": "Reattach", "effect": "Revives with 25 HP (if other segments are alive)." }
+      ]
+    },
+    "ENTOMANCER": {
+      "moves": [
+        { "stateId": "BEES_MOVE", "name": "Beeeees!", "effect": "Deals [color=#FF6666]{damage}[/color] damage[color=#FF6666]{hits_suffix}[/color]." },
+        { "stateId": "SPEAR_MOVE", "name": "Spear!", "effect": "Deals [color=#FF6666]{damage}[/color] damage." },
+        { "stateId": "PHEROMONE_SPIT_MOVE", "name": "Pheromone Spit", "effect": "Gains 1 Personal Hive and 1 {STRENGTH}. If Personal Hive is at 3, gains 2 {STRENGTH} instead." }
+      ]
+    },
+    "INFESTED_PRISM": {
+      "moves": [
+        { "stateId": "JAB_MOVE", "name": "Jab", "effect": "Deals [color=#FF6666]{damage}[/color] damage." },
+        { "stateId": "RADIATE_MOVE", "name": "Radiate", "effect": "Deals [color=#FF6666]{damage}[/color] damage. Gains 16 {BLOCK}." },
+        { "stateId": "WHIRLWIND_MOVE", "name": "Whirlwind", "effect": "Deals [color=#FF6666]{damage}[/color] damage[color=#FF6666]{hits_suffix}[/color]." },
+        { "stateId": "PULSATE_MOVE", "name": "Pulsate", "effect": "Gains 20 {BLOCK}. Gains 4 {STRENGTH}." }
+      ]
+    },
+    "THE_INSATIABLE": {
+      "moves": [
+        { "stateId": "LIQUIFY_GROUND_MOVE", "name": "Liquify Ground", "effect": "Applies 4 Sandpit to each player. Shuffles 6 Frantic Escape into each player's deck." },
+        { "stateId": "THRASH_MOVE_1", "name": "Thrash", "effect": "Deals [color=#FF6666]{damage}[/color] damage[color=#FF6666]{hits_suffix}[/color]." },
+        { "stateId": "LUNGING_BITE_MOVE", "name": "Lunging Bite", "effect": "Deals [color=#FF6666]{damage}[/color] damage." },
+        { "stateId": "SALIVATE_MOVE", "name": "Salivate", "effect": "Gains 2 {STRENGTH}." },
+        { "stateId": "THRASH_MOVE_2", "name": "Thrash", "effect": "Deals [color=#FF6666]{damage}[/color] damage[color=#FF6666]{hits_suffix}[/color]." }
+      ]
+    },
+    "KNOWLEDGE_DEMON": {
+      "moves": [
+        { "stateId": "CURSE_OF_KNOWLEDGE_MOVE", "name": "Curse of Knowledge", "effect": "Each player chooses one of two curse cards to receive." },
+        { "stateId": "SLAP_MOVE", "name": "Slap", "effect": "Deals [color=#FF6666]{damage}[/color] damage." },
+        { "stateId": "KNOWLEDGE_OVERWHELMING_MOVE", "name": "Knowledge Overwhelming", "effect": "Deals [color=#FF6666]{damage}[/color] damage[color=#FF6666]{hits_suffix}[/color]." },
+        { "stateId": "PONDER_MOVE", "name": "Ponder", "effect": "Deals [color=#FF6666]{damage}[/color] damage. Heals 30 HP per player. Gains 2 {STRENGTH}." }
+      ]
+    },
+    "CRUSHER": {
+      "moves": [
+        { "stateId": "THRASH_MOVE", "name": "Thrash", "effect": "Deals [color=#FF6666]{damage}[/color] damage." },
+        { "stateId": "ENLARGING_STRIKE_MOVE", "name": "Enlarging Strike", "effect": "Deals [color=#FF6666]{damage}[/color] damage." },
+        { "stateId": "BUG_STING_MOVE", "name": "Bug Sting", "effect": "Deals [color=#FF6666]{damage}[/color] damage[color=#FF6666]{hits_suffix}[/color]. Applies 2 {WEAK} and 2 {FRAIL}." },
+        { "stateId": "ADAPT_MOVE", "name": "Adapt", "effect": "Gains 2 {STRENGTH}." },
+        { "stateId": "GUARDED_STRIKE_MOVE", "name": "Guarded Strike", "effect": "Deals [color=#FF6666]{damage}[/color] damage. Gains 18 {BLOCK}." }
+      ]
+    },
+    "ROCKET": {
+      "moves": [
+        { "stateId": "TARGETING_RETICLE_MOVE", "name": "Targeting Reticle", "effect": "Deals [color=#FF6666]{damage}[/color] damage." },
+        { "stateId": "PRECISION_BEAM_MOVE", "name": "Precision Beam", "effect": "Deals [color=#FF6666]{damage}[/color] damage." },
+        { "stateId": "CHARGE_UP_MOVE", "name": "Charge Up", "effect": "Gains 2 {STRENGTH}." },
+        { "stateId": "LASER_MOVE", "name": "Laser", "effect": "Deals [color=#FF6666]{damage}[/color] damage." },
+        { "stateId": "RECHARGE_MOVE", "name": "Recharge", "effect": "Does nothing." }
+      ]
+    },
+
+    "AXEBOT": {
+      "moves": [
+        { "stateId": "BOOT_UP_MOVE", "name": "Boot Up", "effect": "Gains 10 {BLOCK}. Gains 1 {STRENGTH}." },
+        { "stateId": "ONE_TWO_MOVE", "name": "The One-Two", "effect": "Deals [color=#FF6666]{damage}[/color] damage[color=#FF6666]{hits_suffix}[/color]." },
+        { "stateId": "SHARPEN_MOVE", "name": "Sharpen", "effect": "Gains 4 {STRENGTH}." },
+        { "stateId": "HAMMER_UPPERCUT_MOVE", "name": "Hammer Uppercut", "effect": "Deals [color=#FF6666]{damage}[/color] damage. Applies 1 {WEAK} and 1 {FRAIL}." }
+      ]
+    },
+    "DEVOTED_SCULPTOR": {
+      "moves": [
+        { "stateId": "FORBIDDEN_INCANTATION_MOVE", "name": "Forbidden Incantation", "effect": "Gains 9 {RITUAL}." },
+        { "stateId": "SAVAGE_MOVE", "name": "Savage", "effect": "Deals [color=#FF6666]{damage}[/color] damage." }
+      ]
+    },
+    "FABRICATOR": {
+      "moves": [
+        { "stateId": "FABRICATE_MOVE", "name": "Fabricate", "effect": "Summons 1 defensive bot and 1 aggressive bot." },
+        { "stateId": "FABRICATING_STRIKE_MOVE", "name": "Fabricating Strike", "effect": "Deals [color=#FF6666]{damage}[/color] damage. Summons 1 aggressive bot." },
+        { "stateId": "DISINTEGRATE_MOVE", "name": "Disintegrate", "effect": "Deals [color=#FF6666]{damage}[/color] damage." }
+      ]
+    },
+    "GUARDBOT": {
+      "moves": [
+        { "stateId": "GUARD_MOVE", "name": "Guard", "effect": "Gives the Fabricator 15 {BLOCK}." }
+      ]
+    },
+    "NOISEBOT": {
+      "moves": [
+        { "stateId": "NOISE_MOVE", "name": "Noise", "effect": "Shuffles 2 Dazed into the draw and discard piles." }
+      ]
+    },
+    "STABBOT": {
+      "moves": [
+        { "stateId": "STAB_MOVE", "name": "Stab", "effect": "Deals [color=#FF6666]{damage}[/color] damage. Applies 1 {FRAIL}." }
+      ]
+    },
+    "ZAPBOT": {
+      "moves": [
+        { "stateId": "ZAP", "name": "Zap", "effect": "Deals [color=#FF6666]{damage}[/color] damage." }
+      ]
+    },
+    "FROG_KNIGHT": {
+      "moves": [
+        { "stateId": "TONGUE_LASH", "name": "Tongue Lash", "effect": "Deals [color=#FF6666]{damage}[/color] damage. Applies 2 {FRAIL}." },
+        { "stateId": "STRIKE_DOWN_EVIL", "name": "Strike Down Evil", "effect": "Deals [color=#FF6666]{damage}[/color] damage." },
+        { "stateId": "FOR_THE_QUEEN", "name": "For the Queen", "effect": "Gains 5 {STRENGTH}." },
+        { "stateId": "BEETLE_CHARGE", "name": "Beetle Charge", "effect": "Deals [color=#FF6666]{damage}[/color] damage." }
+      ]
+    },
+    "GLOBE_HEAD": {
+      "moves": [
+        { "stateId": "SHOCKING_SLAP", "name": "Shocking Slap", "effect": "Deals [color=#FF6666]{damage}[/color] damage. Applies 2 {FRAIL}." },
+        { "stateId": "THUNDER_STRIKE", "name": "Thunder Strike", "effect": "Deals [color=#FF6666]{damage}[/color] damage[color=#FF6666]{hits_suffix}[/color]." },
+        { "stateId": "GALVANIC_BURST", "name": "Galvanic Burst", "effect": "Deals [color=#FF6666]{damage}[/color] damage. Gains 2 {STRENGTH}." }
+      ]
+    },
+    "TURRET_OPERATOR": {
+      "moves": [
+        { "stateId": "UNLOAD_MOVE_1", "name": "Unload!", "effect": "Deals [color=#FF6666]{damage}[/color] damage[color=#FF6666]{hits_suffix}[/color]." },
+        { "stateId": "UNLOAD_MOVE_2", "name": "Unload!", "effect": "Deals [color=#FF6666]{damage}[/color] damage[color=#FF6666]{hits_suffix}[/color]." },
+        { "stateId": "RELOAD_MOVE", "name": "Reload", "effect": "Gains 1 {STRENGTH}." }
+      ]
+    },
+    "LIVING_SHIELD": {
+      "moves": [
+        { "stateId": "SHIELD_SLAM_MOVE", "name": "Shield Slam", "effect": "Deals [color=#FF6666]{damage}[/color] damage." },
+        { "stateId": "SMASH_MOVE", "name": "Smash", "effect": "Deals [color=#FF6666]{damage}[/color] damage. Gains 3 {STRENGTH}." }
+      ]
+    },
+    "OWL_MAGISTRATE": {
+      "moves": [
+        { "stateId": "MAGISTRATE_SCRUTINY", "name": "Magistrate Scrutiny", "effect": "Deals [color=#FF6666]{damage}[/color] damage." },
+        { "stateId": "PECK_ASSAULT", "name": "Peck Assault", "effect": "Deals [color=#FF6666]{damage}[/color] damage[color=#FF6666]{hits_suffix}[/color]." },
+        { "stateId": "JUDICIAL_FLIGHT", "name": "Judicial Flight", "effect": "Gains {SOAR}." },
+        { "stateId": "VERDICT", "name": "Verdict", "effect": "Deals [color=#FF6666]{damage}[/color] damage. Applies 4 {VULNERABLE}." }
+      ]
+    },
+    "SCROLL_OF_BITING": {
+      "moves": [
+        { "stateId": "CHOMP", "name": "Chomp", "effect": "Deals [color=#FF6666]{damage}[/color] damage." },
+        { "stateId": "CHEW", "name": "Chew", "effect": "Deals [color=#FF6666]{damage}[/color] damage[color=#FF6666]{hits_suffix}[/color]." },
+        { "stateId": "MORE_TEETH", "name": "More Teeth", "effect": "Gains 2 {STRENGTH}." }
+      ]
+    },
+    "SLIMED_BERSERKER": {
+      "moves": [
+        { "stateId": "VOMIT_ICHOR_MOVE", "name": "Vomit Ichor", "effect": "Shuffles 10 Slimed into the discard pile." },
+        { "stateId": "FURIOUS_PUMMELING_MOVE", "name": "Furious Pummeling", "effect": "Deals [color=#FF6666]{damage}[/color] damage[color=#FF6666]{hits_suffix}[/color]." },
+        { "stateId": "LEECHING_HUG_MOVE", "name": "Leeching Hug", "effect": "Applies 3 {WEAK}. Gains 3 {STRENGTH}." },
+        { "stateId": "SMOTHER_MOVE", "name": "Smother", "effect": "Deals [color=#FF6666]{damage}[/color] damage." }
+      ]
+    },
+    "THE_LOST": {
+      "moves": [
+        { "stateId": "DEBILITATING_SMOG", "name": "Debilitating Smog", "effect": "Removes 2 {STRENGTH} from the player. Gains 2 {STRENGTH}." },
+        { "stateId": "EYE_LASERS", "name": "Eye Lasers", "effect": "Deals [color=#FF6666]{damage}[/color] damage[color=#FF6666]{hits_suffix}[/color]." }
+      ]
+    },
+    "THE_FORGOTTEN": {
+      "moves": [
+        { "stateId": "MIASMA", "name": "Miasma", "effect": "Removes 2 {DEXTERITY} from the player. Gains 8 {BLOCK} and 2 {DEXTERITY}." },
+        { "stateId": "DREAD", "name": "Dread", "effect": "Deals [color=#FF6666]{damage}[/color] damage." }
+      ]
+    },
+    "FLAIL_KNIGHT": {
+      "moves": [
+        { "stateId": "WAR_CHANT", "name": "War Chant", "effect": "Gains 3 {STRENGTH}." },
+        { "stateId": "FLAIL_MOVE", "name": "Flail", "effect": "Deals [color=#FF6666]{damage}[/color] damage[color=#FF6666]{hits_suffix}[/color]." },
+        { "stateId": "RAM_MOVE", "name": "Ram", "effect": "Deals [color=#FF6666]{damage}[/color] damage." }
+      ]
+    },
+    "MAGI_KNIGHT": {
+      "moves": [
+        { "stateId": "FIRST_POWER_SHIELD_MOVE", "name": "Power Shield", "effect": "Deals [color=#FF6666]{damage}[/color] damage. Gains {BLOCK}." },
+        { "stateId": "DAMPEN_MOVE", "name": "Dampen", "effect": "While alive, all your Power cards are Galvanized." },
+        { "stateId": "RAM_MOVE", "name": "Ram", "effect": "Deals [color=#FF6666]{damage}[/color] damage." },
+        { "stateId": "PREP_MOVE", "name": "Prep", "effect": "Gains {BLOCK}." },
+        { "stateId": "MAGIC_BOMB", "name": "Magic Bomb", "effect": "Deals [color=#FF6666]{damage}[/color] damage." }
+      ]
+    },
+    "SPECTRAL_KNIGHT": {
+      "moves": [
+        { "stateId": "HEX", "name": "Hex", "effect": "Applies 2 {HEX}." },
+        { "stateId": "SOUL_SLASH", "name": "Soul Slash", "effect": "Deals [color=#FF6666]{damage}[/color] damage." },
+        { "stateId": "SOUL_FLAME", "name": "Soul Flame", "effect": "Deals [color=#FF6666]{damage}[/color] damage[color=#FF6666]{hits_suffix}[/color]." }
+      ]
+    },
+    "MECHA_KNIGHT": {
+      "moves": [
+        { "stateId": "CHARGE_MOVE", "name": "Charge", "effect": "Deals [color=#FF6666]{damage}[/color] damage." },
+        { "stateId": "FLAMETHROWER_MOVE", "name": "Flamethrower", "effect": "Shuffles 4 Burns into your hand." },
+        { "stateId": "WINDUP_MOVE", "name": "Windup", "effect": "Gains 15 {BLOCK} and 5 {STRENGTH}." },
+        { "stateId": "HEAVY_CLEAVE_MOVE", "name": "Heavy Cleave", "effect": "Deals [color=#FF6666]{damage}[/color] damage." }
+      ]
+    },
+    "SOUL_NEXUS": {
+      "moves": [
+        { "stateId": "SOUL_BURN_MOVE", "name": "Soul Burn", "effect": "Deals [color=#FF6666]{damage}[/color] damage." },
+        { "stateId": "MAELSTROM_MOVE", "name": "Maelstrom", "effect": "Deals [color=#FF6666]{damage}[/color] damage[color=#FF6666]{hits_suffix}[/color]." },
+        { "stateId": "DRAIN_LIFE_MOVE", "name": "Drain Life", "effect": "Deals [color=#FF6666]{damage}[/color] damage. Applies 2 {VULNERABLE} and 2 {WEAK}." }
+      ]
+    },
+    "QUEEN": {
+      "moves": [
+        { "stateId": "PUPPET_STRINGS_MOVE", "name": "Puppet Strings", "effect": "Applies 3 {CHAINS_OF_BINDING}." },
+        { "stateId": "YOUR_MINE_MOVE", "name": "You're Mine", "effect": "Applies 99 {FRAIL}, 99 {WEAK}, and 99 {VULNERABLE}." },
+        { "stateId": "BURN_BRIGHT_FOR_ME_MOVE", "name": "Burn Bright for Me", "effect": "Gives allies 1 {STRENGTH}. Gains 20 {BLOCK}." },
+        { "stateId": "OFF_WITH_YOUR_HEAD_MOVE", "name": "Off with Your Head", "effect": "Deals [color=#FF6666]{damage}[/color] damage[color=#FF6666]{hits_suffix}[/color]." },
+        { "stateId": "EXECUTION_MOVE", "name": "Execution", "effect": "Deals [color=#FF6666]{damage}[/color] damage." },
+        { "stateId": "ENRAGE_MOVE", "name": "Enrage", "effect": "Gains 2 {STRENGTH}." }
+      ]
+    },
+    "TORCH_HEAD_AMALGAM": {
+      "moves": [
+        { "stateId": "TACKLE_1_MOVE", "name": "Tackle", "effect": "Deals [color=#FF6666]{damage}[/color] damage." },
+        { "stateId": "TACKLE_2_MOVE", "name": "Tackle", "effect": "Deals [color=#FF6666]{damage}[/color] damage." },
+        { "stateId": "BEAM_MOVE", "name": "Soul Beam", "effect": "Deals [color=#FF6666]{damage}[/color] damage[color=#FF6666]{hits_suffix}[/color]." },
+        { "stateId": "TACKLE_3_MOVE", "name": "Weak Tackle", "effect": "Deals [color=#FF6666]{damage}[/color] damage." },
+        { "stateId": "TACKLE_4_MOVE", "name": "Weak Tackle", "effect": "Deals [color=#FF6666]{damage}[/color] damage." }
+      ]
+    },
+    "TEST_SUBJECT": {
+      "moves": [
+        { "stateId": "BITE_MOVE", "name": "Bite", "effect": "Deals [color=#FF6666]{damage}[/color] damage." },
+        { "stateId": "SKULL_BASH_MOVE", "name": "Skull Bash", "effect": "Deals [color=#FF6666]{damage}[/color] damage. Applies 1 {VULNERABLE}." },
+        { "stateId": "RESPAWN_MOVE", "name": "Respawn", "effect": "Revives with increased HP and new powers." },
+        { "stateId": "POUNCE_MOVE", "name": "Pounce", "effect": "Deals [color=#FF6666]{damage}[/color] damage." },
+        { "stateId": "MULTI_CLAW_MOVE", "name": "Multi-Claw", "effect": "Deals [color=#FF6666]{damage}[/color] damage[color=#FF6666]{hits_suffix}[/color]. Hit count increases by 1 each use." },
+        { "stateId": "PHASE3_LACERATE_MOVE", "name": "Lacerate", "effect": "Deals [color=#FF6666]{damage}[/color] damage[color=#FF6666]{hits_suffix}[/color]." },
+        { "stateId": "BIG_POUNCE_MOVE", "name": "Big Pounce", "effect": "Deals [color=#FF6666]{damage}[/color] damage." },
+        { "stateId": "BURNING_GROWL_MOVE", "name": "Burning Growl", "effect": "Shuffles 3 Burns into the discard pile. Gains 2 {STRENGTH}." }
+      ]
+    },
+    "DOORMAKER": {
+      "moves": [
+        { "stateId": "WHAT_IS_IT_MOVE", "name": "What Is It?", "effect": "Does nothing." },
+        { "stateId": "BEAM_MOVE", "name": "Laser Beam", "effect": "Deals [color=#FF6666]{damage}[/color] damage." },
+        { "stateId": "GET_BACK_IN_MOVE", "name": "Get Back In", "effect": "Deals [color=#FF6666]{damage}[/color] damage. Gains 5 {STRENGTH}. Revives the Door and escapes." }
+      ]
+    },
+    "DOOR": {
+      "moves": [
+        { "stateId": "DRAMATIC_OPEN_MOVE", "name": "Dramatic Open", "effect": "Deals [color=#FF6666]{damage}[/color] damage." },
+        { "stateId": "DOOR_SLAM_MOVE", "name": "Door Slam", "effect": "Deals [color=#FF6666]{damage}[/color] damage[color=#FF6666]{hits_suffix}[/color]." },
+        { "stateId": "ENFORCE_MOVE", "name": "Enforce", "effect": "Deals [color=#FF6666]{damage}[/color] damage. Gains 3 {STRENGTH}." }
       ]
     }
   }
