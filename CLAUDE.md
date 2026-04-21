@@ -120,6 +120,7 @@ Each feature lives in `Patches/<Name>/`. Shared helpers live in `UI/` and `Utili
 | `ActNameDisplay/` | patch + config | Per-act styled label next to the top-bar boss icon. Uses `UI/ActNameLabel.cs`. |
 | `DeckSearch/` | patch + config | Text search on the mid-run deck view. Uses `NodeHelper.ExtractFromScene`. |
 | `IncomingDamageDisplay/` | patch + config | Aggregated incoming damage/HP loss next to the HP bar. Uses `CombatPredictor`, `Widgets.CreateStyledRichLabel`. |
+| `IntentPatterns/` | 4 files + config + JSON | Middle-click enemy to view move patterns (name, intent icons, effect). Hybrid runtime extraction + JSON enrichment with token-based BBCode. Uses `ModalHelper`, `StyleHelper`, `FontHelper`, `Theme`. |
 | `MapHistory/` | 4 files + config | Captures per-act maps, writes sidecar JSON. Button + modal viewer with game arrows. Uses `ButtonHelper`, `ModalHelper`, `NodeHelper`, `SidecarIO`. |
 | `ModConfigUI/` | patch | In-game toggle UI under settings. Uses `CloneHelper`, `ModalHelper`, `TabHelper`, `WidgetHelper`, `StyleHelper`, `Theme`. |
 | `RarityDisplay/` | patch + config | Rarity coloring on compendium headers and hover tips. Uses `UI/RarityHelper.cs`. |

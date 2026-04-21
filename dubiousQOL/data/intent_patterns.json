@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "creatures": {
+    "TOADPOLE": {
+      "moves": [
+        {
+          "stateId": "SPIKE_SPIT_MOVE",
+          "name": "Spike Spit",
+          "effect": "Deals [color=#FF6666]{damage}[/color] damage[color=#FF6666]{hits_suffix}[/color]. Removes 2 {THORNS} from self."
+        },
+        {
+          "stateId": "WHIRL_MOVE",
+          "name": "Whirl",
+          "effect": "Deals [color=#FF6666]{damage}[/color] damage."
+        },
+        {
+          "stateId": "SPIKEN_MOVE",
+          "name": "Spiken",
+          "effect": "Gains 2 {THORNS}."
+        }
+      ]
+    }
+  }
+}
