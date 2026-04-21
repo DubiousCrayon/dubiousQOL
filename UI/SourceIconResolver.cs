@@ -454,7 +454,7 @@ internal static class SourceIconResolver
         _otherIcon ??= SafeLoadTexture("res://images/ui/emote/question.png");
 
     private static Texture2D? LoadMoreIcon() =>
-        _moreIcon ??= SafeLoadTexture("res://images/atlases/power_atlas.sprites/draw_cards_next_turn_power.tres");
+        _moreIcon ??= SafeLoadTexture("res://images/atlases/power_atlas.sprites/duplication_power.tres");
 
     private static Texture2D? SafeLoadTexture(string path)
     {

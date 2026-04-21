@@ -23,7 +23,9 @@ internal static class TabHelper
     /// </summary>
     public static Node? AcquireSourceTab()
     {
-        if (_acquired) return _cachedSourceTab;
+        if (_acquired && _cachedSourceTab != null && GodotObject.IsInstanceValid(_cachedSourceTab))
+            return _cachedSourceTab;
+        _acquired = false;
         _acquired = true;
 
         try

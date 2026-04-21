@@ -417,12 +417,19 @@ internal static class StatsTrackerData
         if (!found) list.Add((owner.NetId, powerName));
     }
 
+    // WaterfallGiant's invincible phase sets HP to 999,999,999. Any damage entry
+    // that somehow reports more than this threshold is cosmetic/sentinel and must be dropped.
+    private const int SentinelHpThreshold = 100_000;
+
     private static void ProcessDamage(DamageReceivedEntry d)
     {
         // UnblockedDamage = actual HP removed (excludes overkill and blocked damage).
         // A 40-damage hit on a 10 HP enemy records 10, not 40.
         var hpRemoved = d.Result.UnblockedDamage;
         if (hpRemoved <= 0) return;
+
+        // Drop sentinel-sized entries (e.g. CreatureCmd.Kill on 999,999,999 HP creatures).
+        if (hpRemoved > SentinelHpThreshold) return;
 
         if (d.Receiver != null && d.Receiver.Side == CombatSide.Enemy)
         {

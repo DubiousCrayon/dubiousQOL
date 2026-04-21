@@ -401,7 +401,7 @@ internal partial class RunHistoryStatsViewer : Control, IScreenContext
     {
         int rowHeight = compact ? 28 : 36;
         int fontSize = compact ? 18 : 22;
-        int iconSize = compact ? 24 : 32;
+        int iconSize = compact ? 20 : 26;
 
         // Root container with the bar behind it.
         var root = new Control
