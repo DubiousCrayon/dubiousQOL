@@ -115,38 +115,38 @@ public static class PatchBossIconIntentPatterns
 
             IntentPatternsData.EnsureLoaded();
 
-            var encounter = runState.Act.BossEncounter;
-            if (encounter == null) return;
-
-            // Collect patterns for ALL monsters in this encounter
-            string encounterSlug = encounter.Id.Entry.ToLowerInvariant();
             var sections = new List<MonsterSection>();
-            foreach (var monster in encounter.AllPossibleMonsters)
+            string title;
+
+            bool showSecondOnly = bossIcon.ShouldOnlyShowSecondBossIcon;
+            var bossEncounter = runState.Act.BossEncounter;
+            var secondBossEncounter = runState.Act.SecondBossEncounter;
+
+            if (showSecondOnly && secondBossEncounter != null)
             {
-                var entry = monster.Id.Entry;
-                if (!IntentPatternsData.HasEnrichment(entry)) continue;
+                CollectEncounterSections(secondBossEncounter, sections);
+                title = secondBossEncounter.Title.GetFormattedText() ?? "Boss";
+            }
+            else
+            {
+                if (bossEncounter != null)
+                    CollectEncounterSections(bossEncounter, sections);
 
-                var patterns = IntentPatternsData.ResolveEnrichmentOnly(entry);
-                if (patterns.Count == 0) continue;
+                if (secondBossEncounter != null && !showSecondOnly)
+                    CollectEncounterSections(secondBossEncounter, sections);
 
-                sections.Add(new MonsterSection
-                {
-                    Name = monster.Title.GetFormattedText() ?? entry,
-                    MonsterEntry = entry,
-                    EncounterSlug = encounterSlug,
-                    Patterns = patterns,
-                });
+                title = bossEncounter?.Title.GetFormattedText() ?? "Boss";
+                if (secondBossEncounter != null && !showSecondOnly)
+                    title += $" & {secondBossEncounter.Title.GetFormattedText() ?? "Boss"}";
             }
 
             if (sections.Count == 0) return;
-
-            string bossName = encounter.Title.GetFormattedText() ?? sections[0].MonsterEntry;
 
             var modal = ModalHelper.GetModal();
             if (modal == null) return;
 
             NHoverTipSet.shouldBlockHoverTips = true;
-            var viewer = new IntentPatternsViewer(bossName, sections);
+            var viewer = new IntentPatternsViewer(title, sections);
             viewer.TreeExited += () => NHoverTipSet.shouldBlockHoverTips = false;
             modal.Add(viewer, showBackstop: false);
         }
@@ -154,6 +154,44 @@ public static class PatchBossIconIntentPatterns
         {
             NHoverTipSet.shouldBlockHoverTips = false;
             MainFile.Logger.Warn($"IntentPatterns boss open: {e.Message}");
+        }
+    }
+
+    private static void CollectEncounterSections(EncounterModel encounter, List<MonsterSection> sections)
+    {
+        string encounterSlug = encounter.Id.Entry.ToLowerInvariant();
+
+        // Count how many of each monster type spawn
+        var spawnCounts = new Dictionary<string, int>();
+        try
+        {
+            var generated = encounter.GenerateMonsters();
+            foreach (var (monster, _) in generated)
+            {
+                var e = monster.Id.Entry;
+                spawnCounts[e] = spawnCounts.GetValueOrDefault(e) + 1;
+            }
+        }
+        catch { /* fallback: count stays at default 1 */ }
+
+        foreach (var monster in encounter.AllPossibleMonsters)
+        {
+            var entry = monster.Id.Entry;
+            if (!IntentPatternsData.HasEnrichment(entry)) continue;
+
+            var patterns = IntentPatternsData.ResolveEnrichmentOnly(entry);
+            if (patterns.Count == 0) continue;
+
+            sections.Add(new MonsterSection
+            {
+                Name = monster.Title.GetFormattedText() ?? entry,
+                MonsterEntry = entry,
+                EncounterSlug = encounterSlug,
+                MinHp = monster.MinInitialHp,
+                MaxHp = monster.MaxInitialHp,
+                SpawnCount = spawnCounts.GetValueOrDefault(entry, 1),
+                Patterns = patterns,
+            });
         }
     }
 }

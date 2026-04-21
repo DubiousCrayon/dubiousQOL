@@ -59,6 +59,9 @@ internal sealed class MonsterSection
     public string Name { get; set; } = "";
     public string MonsterEntry { get; set; } = "";
     public string? EncounterSlug { get; set; }
+    public int? MinHp { get; set; }
+    public int? MaxHp { get; set; }
+    public int SpawnCount { get; set; } = 1;
     public List<ResolvedPattern> Patterns { get; set; } = new();
 }
 

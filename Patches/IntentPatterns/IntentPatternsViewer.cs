@@ -68,7 +68,26 @@ internal partial class IntentPatternsViewer : Control, IScreenContext
         // Compute dynamic column widths from content
         float nameColWidth = MeasureNameColumnWidth();
         float effectColWidth = MeasureEffectColumnWidth();
-        float cardWidth = nameColWidth + IntentColWidth + effectColWidth + CardMargins;
+        float singleColWidth = nameColWidth + IntentColWidth + effectColWidth + CardMargins;
+        float cardWidth;
+        if (_sections.Count > 1)
+        {
+            // Sum per-section widths for side-by-side layout
+            float total = 0;
+            for (int i = 0; i < _sections.Count; i++)
+            {
+                var sectionList = new List<MonsterSection> { _sections[i] };
+                float nw = MeasureNameColumnWidth(sectionList);
+                float ew = MeasureEffectColumnWidth(sectionList);
+                total += nw + IntentColWidth + ew + CardMargins;
+            }
+            total += (_sections.Count - 1) * 25f; // separator + padding
+            cardWidth = total;
+        }
+        else
+        {
+            cardWidth = singleColWidth;
+        }
 
         // Dim backdrop — click to dismiss
         var backdrop = new ColorRect
@@ -105,22 +124,75 @@ internal partial class IntentPatternsViewer : Control, IScreenContext
             var titleHeader = StyleHelper.CreateSectionHeader(_title, ModTheme.SectionHeader, fontSize: 26, outlineSize: 5);
             titleHeader.AutoSizeEnabled = false;
             titleHeader.AddThemeFontSizeOverride("font_size", 26);
+            titleHeader.HorizontalAlignment = HorizontalAlignment.Center;
             titleHeader.CustomMinimumSize = new Vector2(0, 0);
             vbox.AddChild(titleHeader);
-            vbox.AddChild(StyleHelper.CreateDivider(ModTheme.Divider, height: 1f));
+            vbox.AddChild(StyleHelper.CreateDivider(ModTheme.Divider, height: 2f));
+
+            // Side-by-side columns for each monster
+            var columnsBox = new HBoxContainer();
+            columnsBox.AddThemeConstantOverride("separation", 0);
+            vbox.AddChild(columnsBox);
+
+            for (int s = 0; s < _sections.Count; s++)
+            {
+                if (s > 0)
+                {
+                    // Thin vertical separator with padding on all sides
+                    var sepMargin = new MarginContainer { MouseFilter = MouseFilterEnum.Ignore };
+                    sepMargin.AddThemeConstantOverride("margin_top", 8);
+                    sepMargin.AddThemeConstantOverride("margin_bottom", 8);
+                    sepMargin.AddThemeConstantOverride("margin_left", 12);
+                    sepMargin.AddThemeConstantOverride("margin_right", 12);
+                    var sep = new ColorRect
+                    {
+                        Color = ModTheme.Divider,
+                        CustomMinimumSize = new Vector2(1, 0),
+                        SizeFlagsVertical = SizeFlags.ExpandFill,
+                        MouseFilter = MouseFilterEnum.Ignore,
+                    };
+                    sepMargin.AddChild(sep);
+                    columnsBox.AddChild(sepMargin);
+                }
+
+                var section = _sections[s];
+                var sectionList = new List<MonsterSection> { section };
+                float secNameW = MeasureNameColumnWidth(sectionList);
+                float secEffectW = MeasureEffectColumnWidth(sectionList);
+
+                var colVbox = new VBoxContainer { MouseFilter = MouseFilterEnum.Ignore };
+                colVbox.AddThemeConstantOverride("separation", 8);
+
+                // Monster sub-header
+                var headerBox = new HBoxContainer();
+                headerBox.AddThemeConstantOverride("separation", 16);
+                int fontSize = 22;
+                var header = StyleHelper.CreateSectionHeader(section.Name, ModTheme.SectionHeader, fontSize: fontSize, outlineSize: 5);
+                header.AutoSizeEnabled = false;
+                header.AddThemeFontSizeOverride("font_size", fontSize);
+                header.CustomMinimumSize = new Vector2(0, 0);
+                header.SizeFlagsVertical = SizeFlags.ShrinkCenter;
+                headerBox.AddChild(header);
+                AddBossOrCreaturePortrait(headerBox, section);
+                AddHpLabel(headerBox, section, fontSize);
+                colVbox.AddChild(headerBox);
+
+                colVbox.AddChild(BuildColumnHeaders(secNameW, secEffectW));
+
+                for (int i = 0; i < section.Patterns.Count; i++)
+                    colVbox.AddChild(BuildMoveRow(section.Patterns[i], i % 2 == 1, secNameW, secEffectW));
+
+                columnsBox.AddChild(colVbox);
+                AddSpawnCountStamp(colVbox, section, fontSize);
+            }
         }
-
-        for (int s = 0; s < _sections.Count; s++)
+        else
         {
-            var section = _sections[s];
+            var section = _sections[0];
 
-            if (s > 0)
-                vbox.AddChild(StyleHelper.CreateDivider(ModTheme.Divider, height: 2f));
-
-            // Sub-header — monster name + portrait
             var headerBox = new HBoxContainer();
             headerBox.AddThemeConstantOverride("separation", 16);
-            int fontSize = multiMonster ? 22 : 26;
+            int fontSize = 26;
             var header = StyleHelper.CreateSectionHeader(section.Name, ModTheme.SectionHeader, fontSize: fontSize, outlineSize: 5);
             header.AutoSizeEnabled = false;
             header.AddThemeFontSizeOverride("font_size", fontSize);
@@ -128,24 +200,24 @@ internal partial class IntentPatternsViewer : Control, IScreenContext
             header.SizeFlagsVertical = SizeFlags.ShrinkCenter;
             headerBox.AddChild(header);
             AddBossOrCreaturePortrait(headerBox, section);
+            AddHpLabel(headerBox, section, fontSize);
             vbox.AddChild(headerBox);
 
-            // Column headers row
             vbox.AddChild(BuildColumnHeaders(nameColWidth, effectColWidth));
 
-            // Move rows
             for (int i = 0; i < section.Patterns.Count; i++)
-            {
                 vbox.AddChild(BuildMoveRow(section.Patterns[i], i % 2 == 1, nameColWidth, effectColWidth));
-            }
         }
     }
 
-    private float MeasureNameColumnWidth()
+    private float MeasureNameColumnWidth() => MeasureNameColumnWidth(_sections);
+    private float MeasureEffectColumnWidth() => MeasureEffectColumnWidth(_sections);
+
+    private float MeasureNameColumnWidth(IEnumerable<MonsterSection> sections)
     {
         if (_kreonFont == null) return 100f;
         float max = 0f;
-        foreach (var section in _sections)
+        foreach (var section in sections)
             foreach (var pattern in section.Patterns)
             {
                 float w = _kreonFont.GetStringSize(pattern.Name, fontSize: FontSizeLabel).X;
@@ -157,16 +229,14 @@ internal partial class IntentPatternsViewer : Control, IScreenContext
     private static readonly Regex BbCodeImgRegex = new(@"\[img[^\]]*\][^\[]*\[/img\]", RegexOptions.Compiled);
     private static readonly Regex BbCodeTagRegex = new(@"\[.*?\]", RegexOptions.Compiled);
 
-    private float MeasureEffectColumnWidth()
+    private float MeasureEffectColumnWidth(IEnumerable<MonsterSection> sections)
     {
         if (_kreonFont == null) return 200f;
         float max = 0f;
-        foreach (var section in _sections)
+        foreach (var section in sections)
             foreach (var pattern in section.Patterns)
             {
-                // Count inline icons before stripping
                 int iconCount = BbCodeImgRegex.Matches(pattern.EffectBBCode).Count;
-                // Strip [img]..path..[/img] entirely, then remaining tags
                 string plain = BbCodeImgRegex.Replace(pattern.EffectBBCode, "");
                 plain = BbCodeTagRegex.Replace(plain, "");
                 float w = _kreonFont.GetStringSize(plain, fontSize: FontSizeEffect).X;
@@ -178,7 +248,8 @@ internal partial class IntentPatternsViewer : Control, IScreenContext
 
     private void PositionCard(PanelContainer panel, float cardWidth)
     {
-        panel.Position = new Vector2(520f, 100f);
+        float x = _sections.Count > 1 ? Math.Max(50f, (1920f - cardWidth) / 2f) : 520f;
+        panel.Position = new Vector2(x, 100f);
         panel.CustomMinimumSize = new Vector2(cardWidth, 0);
     }
 
@@ -241,6 +312,79 @@ internal partial class IntentPatternsViewer : Control, IScreenContext
         {
             MainFile.Logger.Warn($"IntentPatterns portrait: {e.Message}");
         }
+    }
+
+    private void AddHpLabel(HBoxContainer container, MonsterSection section, int fontSize)
+    {
+        if (!section.MinHp.HasValue) return;
+
+        var chip = new HBoxContainer { MouseFilter = MouseFilterEnum.Ignore };
+        chip.AddThemeConstantOverride("separation", 6);
+        chip.SizeFlagsVertical = SizeFlags.ShrinkCenter;
+
+        var labelNode = new Label
+        {
+            Text = "HP",
+            VerticalAlignment = VerticalAlignment.Center,
+            MouseFilter = MouseFilterEnum.Ignore,
+        };
+        if (_kreonFont != null) labelNode.AddThemeFontOverride("font", _kreonFont);
+        labelNode.AddThemeFontSizeOverride("font_size", fontSize - 4);
+        labelNode.AddThemeColorOverride("font_color", Colors.White);
+        chip.AddChild(labelNode);
+
+        string hpValue = section.MinHp == section.MaxHp
+            ? $"{section.MinHp}"
+            : $"{section.MinHp}-{section.MaxHp}";
+
+        var valueNode = new Label
+        {
+            Text = hpValue,
+            VerticalAlignment = VerticalAlignment.Center,
+            MouseFilter = MouseFilterEnum.Ignore,
+        };
+        if (_kreonFont != null) valueNode.AddThemeFontOverride("font", _kreonFont);
+        valueNode.AddThemeFontSizeOverride("font_size", fontSize);
+        valueNode.AddThemeColorOverride("font_color", ModTheme.Damage);
+        chip.AddChild(valueNode);
+
+        container.AddChild(chip);
+    }
+
+    private static Font? _fightKidFont;
+
+    private void AddSpawnCountStamp(Control container, MonsterSection section, int fontSize)
+    {
+        if (section.SpawnCount <= 1) return;
+
+        if (_fightKidFont == null || !GodotObject.IsInstanceValid(_fightKidFont))
+            _fightKidFont = FontHelper.Load("fightkid");
+
+        var stamp = new Label
+        {
+            Text = $"x{section.SpawnCount}",
+            MouseFilter = MouseFilterEnum.Ignore,
+            TopLevel = true,
+        };
+        if (_fightKidFont != null) stamp.AddThemeFontOverride("font", _fightKidFont);
+        stamp.AddThemeFontSizeOverride("font_size", fontSize + 6);
+        stamp.AddThemeColorOverride("font_color", new Color(0.5f, 0.85f, 0.9f));
+
+        container.AddChild(stamp);
+
+        container.Ready += () =>
+        {
+            Callable.From(() =>
+            {
+                var globalRect = container.GetGlobalRect();
+                stamp.PivotOffset = stamp.Size / 2f;
+                stamp.RotationDegrees = -12f;
+                stamp.GlobalPosition = new Vector2(
+                    globalRect.End.X - stamp.Size.X - 8f,
+                    globalRect.Position.Y - 4f
+                );
+            }).CallDeferred();
+        };
     }
 
     private Control BuildColumnHeaders(float nameColWidth, float effectColWidth)
