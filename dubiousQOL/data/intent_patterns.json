@@ -12,7 +12,7 @@
     "NIBBIT": {
       "moves": [
         { "stateId": "BUTT_MOVE", "name": "Butt", "effect": "Deals [color=#FF6666]{damage}[/color] damage." },
-        { "stateId": "SLICE_MOVE", "name": "Hesitant Slice", "effect": "Deals [color=#FF6666]{damage}[/color] damage. Gains 5 {BLOCK}." },
+        { "stateId": "SLICE_MOVE", "name": "Hesitant Slice", "effect": "Deals [color=#FF6666]{damage}[/color] damage. Gains {5:block} {BLOCK}." },
         { "stateId": "HISS_MOVE", "name": "Hiss", "effect": "Gains 2 {STRENGTH}." }
       ]
     },
@@ -95,7 +95,7 @@
     "SLITHERING_STRANGLER": {
       "moves": [
         { "stateId": "CONSTRICT", "name": "Constrict", "effect": "Applies 3 {CONSTRICT}." },
-        { "stateId": "TWACK", "name": "Thwack", "effect": "Deals [color=#FF6666]{damage}[/color] damage. Gains 5 {BLOCK}." },
+        { "stateId": "TWACK", "name": "Thwack", "effect": "Deals [color=#FF6666]{damage}[/color] damage. Gains {5:block} {BLOCK}." },
         { "stateId": "LASH", "name": "Lash", "effect": "Deals [color=#FF6666]{damage}[/color] damage." }
       ]
     },
@@ -112,13 +112,13 @@
         { "stateId": "REPEATER_MOVE", "name": "Repeater Blast", "effect": "Deals [color=#FF6666]{damage}[/color] damage. Gains 2 {STRENGTH}." },
         { "stateId": "REPEATER_MOVE_2", "name": "Repeater Blast", "effect": "Deals [color=#FF6666]{damage}[/color] damage. Gains 2 {STRENGTH}." },
         { "stateId": "EXPEL_BLAST", "name": "Expel Blast", "effect": "Deals [color=#FF6666]{damage}[/color] damage[color=#FF6666]{hits_suffix}[/color]." },
-        { "stateId": "SUBMERGE_MOVE", "name": "Submerge", "effect": "Gains 15 {BLOCK}." }
+        { "stateId": "SUBMERGE_MOVE", "name": "Submerge", "effect": "Gains {15:block} {BLOCK}." }
       ]
     },
     "AXE_RUBY_RAIDER": {
       "moves": [
-        { "stateId": "SWING_1", "name": "Swing", "effect": "Deals [color=#FF6666]{damage}[/color] damage. Gains 5 {BLOCK}." },
-        { "stateId": "SWING_2", "name": "Swing", "effect": "Deals [color=#FF6666]{damage}[/color] damage. Gains 5 {BLOCK}." },
+        { "stateId": "SWING_1", "name": "Swing", "effect": "Deals [color=#FF6666]{damage}[/color] damage. Gains {5:block} {BLOCK}." },
+        { "stateId": "SWING_2", "name": "Swing", "effect": "Deals [color=#FF6666]{damage}[/color] damage. Gains {5:block} {BLOCK}." },
         { "stateId": "BIG_SWING", "name": "Big Swing", "effect": "Deals [color=#FF6666]{damage}[/color] damage." }
       ]
     },
@@ -135,7 +135,7 @@
     },
     "CROSSBOW_RUBY_RAIDER": {
       "moves": [
-        { "stateId": "RELOAD_MOVE", "name": "Reload", "effect": "Gains 3 {BLOCK}." },
+        { "stateId": "RELOAD_MOVE", "name": "Reload", "effect": "Gains {3:block} {BLOCK}." },
         { "stateId": "FIRE_MOVE", "name": "Fire!", "effect": "Deals [color=#FF6666]{damage}[/color] damage." }
       ]
     },
@@ -279,7 +279,7 @@
     },
     "PUNCH_CONSTRUCT": {
       "moves": [
-        { "stateId": "READY_MOVE", "name": "Ready", "effect": "Gains 10 {BLOCK}." },
+        { "stateId": "READY_MOVE", "name": "Ready", "effect": "Gains {10:block} {BLOCK}." },
         { "stateId": "STRONG_PUNCH_MOVE", "name": "Strong Punch", "effect": "Deals [color=#FF6666]{damage}[/color] damage." },
         { "stateId": "FAST_PUNCH_MOVE", "name": "Fast Punch", "effect": "Deals [color=#FF6666]{damage}[/color] damage[color=#FF6666]{hits_suffix}[/color]. Applies 1 {WEAK}." }
       ]
@@ -355,7 +355,7 @@
 
     "BOWLBUG_EGG": {
       "moves": [
-        { "stateId": "BITE_MOVE", "name": "Bite", "effect": "Deals [color=#FF6666]{damage}[/color] damage. Gains 7 {BLOCK}." }
+        { "stateId": "BITE_MOVE", "name": "Bite", "effect": "Deals [color=#FF6666]{damage}[/color] damage. Gains {7:block} {BLOCK}." }
       ]
     },
     "BOWLBUG_ROCK": {
@@ -396,7 +396,7 @@
     "TUNNELER": {
       "moves": [
         { "stateId": "BITE_MOVE", "name": "Bite", "effect": "Deals [color=#FF6666]{damage}[/color] damage." },
-        { "stateId": "BURROW_MOVE", "name": "Burrow", "effect": "Gains 32 {BLOCK}. Becomes Burrowed." },
+        { "stateId": "BURROW_MOVE", "name": "Burrow", "effect": "Gains {32:block} {BLOCK}. Becomes Burrowed." },
         { "stateId": "BELOW_MOVE_1", "name": "Attack from Below", "effect": "Deals [color=#FF6666]{damage}[/color] damage." },
         { "stateId": "DIZZY_MOVE", "name": "Emerging Strike", "effect": "Stunned. Does nothing." }
       ]
@@ -417,7 +417,7 @@
     "LOUSE_PROGENITOR": {
       "moves": [
         { "stateId": "WEB_CANNON_MOVE", "name": "Web Cannon", "effect": "Deals [color=#FF6666]{damage}[/color] damage. Applies 2 {FRAIL}." },
-        { "stateId": "CURL_AND_GROW_MOVE", "name": "Curl and Grow", "effect": "Gains 14 {BLOCK}. Gains 5 {STRENGTH}." },
+        { "stateId": "CURL_AND_GROW_MOVE", "name": "Curl and Grow", "effect": "Gains {14:block} {BLOCK}. Gains 5 {STRENGTH}." },
         { "stateId": "POUNCE_MOVE", "name": "Pounce", "effect": "Deals [color=#FF6666]{damage}[/color] damage." }
       ]
     },
@@ -460,7 +460,7 @@
         { "stateId": "ILLUSION_MOVE", "name": "Illusion", "effect": "Summons a Parafright." },
         { "stateId": "PIERCING_GAZE_MOVE", "name": "Piercing Gaze", "effect": "Deals [color=#FF6666]{damage}[/color] damage." },
         { "stateId": "SAIL_MOVE", "name": "Wail", "effect": "All enemies gain 3 {STRENGTH}." },
-        { "stateId": "HARDENING_STRIKE_MOVE", "name": "Hardening Strike", "effect": "Deals [color=#FF6666]{damage}[/color] damage. Gains 6 {BLOCK}." }
+        { "stateId": "HARDENING_STRIKE_MOVE", "name": "Hardening Strike", "effect": "Deals [color=#FF6666]{damage}[/color] damage. Gains {6:block} {BLOCK}." }
       ]
     },
     "PARAFRIGHT": {
@@ -502,9 +502,9 @@
     "INFESTED_PRISM": {
       "moves": [
         { "stateId": "JAB_MOVE", "name": "Jab", "effect": "Deals [color=#FF6666]{damage}[/color] damage." },
-        { "stateId": "RADIATE_MOVE", "name": "Radiate", "effect": "Deals [color=#FF6666]{damage}[/color] damage. Gains 16 {BLOCK}." },
+        { "stateId": "RADIATE_MOVE", "name": "Radiate", "effect": "Deals [color=#FF6666]{damage}[/color] damage. Gains {16:block} {BLOCK}." },
         { "stateId": "WHIRLWIND_MOVE", "name": "Whirlwind", "effect": "Deals [color=#FF6666]{damage}[/color] damage[color=#FF6666]{hits_suffix}[/color]." },
-        { "stateId": "PULSATE_MOVE", "name": "Pulsate", "effect": "Gains 20 {BLOCK}. Gains 4 {STRENGTH}." }
+        { "stateId": "PULSATE_MOVE", "name": "Pulsate", "effect": "Gains {20:block} {BLOCK}. Gains 4 {STRENGTH}." }
       ]
     },
     "THE_INSATIABLE": {
@@ -530,7 +530,7 @@
         { "stateId": "ENLARGING_STRIKE_MOVE", "name": "Enlarging Strike", "effect": "Deals [color=#FF6666]{damage}[/color] damage.", "baseDamage": 4, "a2Damage": 4, "intents": ["attack"] },
         { "stateId": "BUG_STING_MOVE", "name": "Bug Sting", "effect": "Deals [color=#FF6666]{damage}[/color] damage[color=#FF6666]{hits_suffix}[/color]. Applies 2 {WEAK} and 2 {FRAIL}.", "baseDamage": 6, "a2Damage": 7, "hits": 2, "intents": ["attack", "debuff"] },
         { "stateId": "ADAPT_MOVE", "name": "Adapt", "effect": "Gains 2 {STRENGTH}.", "intents": ["buff"] },
-        { "stateId": "GUARDED_STRIKE_MOVE", "name": "Guarded Strike", "effect": "Deals [color=#FF6666]{damage}[/color] damage. Gains 18 {BLOCK}.", "baseDamage": 12, "a2Damage": 14, "intents": ["attack", "defend"] }
+        { "stateId": "GUARDED_STRIKE_MOVE", "name": "Guarded Strike", "effect": "Deals [color=#FF6666]{damage}[/color] damage. Gains {18:block} {BLOCK}.", "baseDamage": 12, "a2Damage": 14, "intents": ["attack", "defend"] }
       ]
     },
     "ROCKET": {
@@ -545,7 +545,7 @@
 
     "AXEBOT": {
       "moves": [
-        { "stateId": "BOOT_UP_MOVE", "name": "Boot Up", "effect": "Gains 10 {BLOCK}. Gains 1 {STRENGTH}." },
+        { "stateId": "BOOT_UP_MOVE", "name": "Boot Up", "effect": "Gains {10:block} {BLOCK}. Gains 1 {STRENGTH}." },
         { "stateId": "ONE_TWO_MOVE", "name": "The One-Two", "effect": "Deals [color=#FF6666]{damage}[/color] damage[color=#FF6666]{hits_suffix}[/color]." },
         { "stateId": "SHARPEN_MOVE", "name": "Sharpen", "effect": "Gains 4 {STRENGTH}." },
         { "stateId": "HAMMER_UPPERCUT_MOVE", "name": "Hammer Uppercut", "effect": "Deals [color=#FF6666]{damage}[/color] damage. Applies 1 {WEAK} and 1 {FRAIL}." }
@@ -643,7 +643,7 @@
     },
     "THE_FORGOTTEN": {
       "moves": [
-        { "stateId": "MIASMA", "name": "Miasma", "effect": "Removes 2 {DEXTERITY} from the player. Gains 8 {BLOCK} and 2 {DEXTERITY}." },
+        { "stateId": "MIASMA", "name": "Miasma", "effect": "Removes 2 {DEXTERITY} from the player. Gains {8:block} {BLOCK} and 2 {DEXTERITY}." },
         { "stateId": "DREAD", "name": "Dread", "effect": "Deals [color=#FF6666]{damage}[/color] damage." }
       ]
     },
@@ -674,7 +674,7 @@
       "moves": [
         { "stateId": "CHARGE_MOVE", "name": "Charge", "effect": "Deals [color=#FF6666]{damage}[/color] damage." },
         { "stateId": "FLAMETHROWER_MOVE", "name": "Flamethrower", "effect": "Shuffles 4 Burns into your hand." },
-        { "stateId": "WINDUP_MOVE", "name": "Windup", "effect": "Gains 15 {BLOCK} and 5 {STRENGTH}." },
+        { "stateId": "WINDUP_MOVE", "name": "Windup", "effect": "Gains {15:block} {BLOCK} and 5 {STRENGTH}." },
         { "stateId": "HEAVY_CLEAVE_MOVE", "name": "Heavy Cleave", "effect": "Deals [color=#FF6666]{damage}[/color] damage." }
       ]
     },
@@ -689,7 +689,7 @@
       "moves": [
         { "stateId": "PUPPET_STRINGS_MOVE", "name": "Puppet Strings", "effect": "Applies 3 {CHAINS_OF_BINDING}.", "intents": ["card_debuff"] },
         { "stateId": "YOUR_MINE_MOVE", "name": "You're Mine", "effect": "Applies 99 {FRAIL}, 99 {WEAK}, and 99 {VULNERABLE}.", "intents": ["debuff"] },
-        { "stateId": "BURN_BRIGHT_FOR_ME_MOVE", "name": "Burn Bright for Me", "effect": "Gives allies 1 {STRENGTH}. Gains 20 {BLOCK}.", "intents": ["buff", "defend"] },
+        { "stateId": "BURN_BRIGHT_FOR_ME_MOVE", "name": "Burn Bright for Me", "effect": "Gives allies 1 {STRENGTH}. Gains {20:block} {BLOCK}.", "intents": ["buff", "defend"] },
         { "stateId": "OFF_WITH_YOUR_HEAD_MOVE", "name": "Off with Your Head", "effect": "Deals [color=#FF6666]{damage}[/color] damage[color=#FF6666]{hits_suffix}[/color].", "baseDamage": 3, "a2Damage": 4, "hits": 5, "intents": ["attack"] },
         { "stateId": "EXECUTION_MOVE", "name": "Execution", "effect": "Deals [color=#FF6666]{damage}[/color] damage.", "baseDamage": 15, "a2Damage": 18, "intents": ["attack"] },
         { "stateId": "ENRAGE_MOVE", "name": "Enrage", "effect": "Gains 2 {STRENGTH}.", "intents": ["buff"] }

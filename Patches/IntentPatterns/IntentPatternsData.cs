@@ -3,15 +3,19 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Text.RegularExpressions;
 using Godot;
 using MegaCrit.Sts2.Core.Assets;
 using MegaCrit.Sts2.Core.Combat;
 using MegaCrit.Sts2.Core.Entities.Ascension;
 using MegaCrit.Sts2.Core.Entities.Creatures;
 using MegaCrit.Sts2.Core.Helpers;
+using MegaCrit.Sts2.Core.Models.Singleton;
 using MegaCrit.Sts2.Core.MonsterMoves.Intents;
 using MegaCrit.Sts2.Core.MonsterMoves.MonsterMoveStateMachine;
 using MegaCrit.Sts2.Core.Nodes.Combat;
+using MegaCrit.Sts2.Core.Runs;
+using HarmonyLib;
 
 namespace dubiousQOL.Patches;
 
@@ -279,8 +283,17 @@ internal static class IntentPatternsData
         return icons;
     }
 
+    // Matches {N:block} tokens — base value N scaled by multiplayer block formula
+    private static readonly Regex ScaledBlockRegex = new(@"\{(\d+):block\}", RegexOptions.Compiled);
+
     private static string ExpandTokens(string text)
     {
+        text = ScaledBlockRegex.Replace(text, match =>
+        {
+            int baseVal = int.Parse(match.Groups[1].Value);
+            return ApplyMultiplayerBlockScaling(baseVal).ToString();
+        });
+
         foreach (var (key, token) in _tokens)
         {
             string placeholder = $"{{{key}}}";
@@ -288,6 +301,26 @@ internal static class IntentPatternsData
                 text = text.Replace(placeholder, token.ToBBCode(TokenIconSize));
         }
         return text;
+    }
+
+    private static int ApplyMultiplayerBlockScaling(int baseValue)
+    {
+        try
+        {
+            var runState = Traverse.Create(RunManager.Instance).Property("State").GetValue<RunState>();
+            if (runState == null) return baseValue;
+
+            int playerCount = runState.Players.Count;
+            if (playerCount <= 1) return baseValue;
+
+            decimal actScaling = MultiplayerScalingModel.GetMultiplayerScaling(
+                runState.Act?.BossEncounter, runState.CurrentActIndex);
+            return (int)Math.Floor(baseValue * playerCount * actScaling);
+        }
+        catch
+        {
+            return baseValue;
+        }
     }
 
     private static string ResolveTemplate(string template, MoveState moveState, Creature owner, Creature[] targets)
